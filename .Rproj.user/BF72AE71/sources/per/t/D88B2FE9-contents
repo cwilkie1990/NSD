@@ -1,0 +1,1242 @@
+
+library(rgdal)
+library(lubridate)
+library(rmapshaper)
+library(INLA)
+library(spdep)
+library(fields)
+library(RColorBrewer)
+library(mgcv)
+library(TeachingDemos)
+library(colorspace)
+
+
+data_current<-read.csv("C:/Users/craig/OneDrive - University of Glasgow/Covid19_work/districtwise_daily_count_202103261314.csv")
+# data_current<-read.csv("C:/Users/craig/OneDrive - University of Glasgow/Covid19_work/districtwise_daily_count_20210331.csv")
+head(data_current)
+colnames(data_current)[1]<-"date"
+data_current$date<-as.Date(data_current$date)
+# data_current$date<-as.Date(data_current$date,format="%d/%m/%Y")
+
+summary(data_current)
+
+data_current$district[data_current$district=="BARISHAL"]<-"Barishal"
+data_current$district[data_current$district=="BOGURA"]<-"Bogura"
+data_current$district[data_current$district=="CHAPAINABABGANJ"]<-"Chapainababganj"
+data_current$district[data_current$district=="CHATTOGRAM"]<-"Chattogram"
+data_current$district[data_current$district=="COXS BAZAR"]<-"CoxsBazar"
+data_current$district[data_current$district=="CUMILLA"]<-"Cumilla"
+data_current$district[data_current$district=="JASHORE"]<-"Jeshore"
+data_current$district[data_current$district=="KISHOREGANJ"]<-"Kishoreganj"
+
+table(data_current$district)
+
+# Exploratory analysis
+
+## Daily data
+
+### Positive case count per district over time
+
+unique.districts<-sort(unique(data_current$district))[-1]
+
+par(mfrow=c(4,4),mar=c(4,4.5,1,0.5))
+for(i in 1:64){
+  plot(data_current$positive_count[data_current$district==unique.districts[i]]~data_current$date[data_current$district==unique.districts[i]],xlab="Year",ylab="Positive count",main=unique.districts[i],pch=16,cex=0.1,type="o",xlim=c(min(data_current$date),max(data_current$date)))
+}
+
+### Test count per district over time
+
+par(mfrow=c(4,4),mar=c(4,4.5,1,0.5))
+for(i in 1:64){
+  plot(data_current$test_count[data_current$district==unique.districts[i]]~data_current$date[data_current$district==unique.districts[i]],xlab="Year",ylab="Test count",main=unique.districts[i],pch=16,cex=0.1,type="o",xlim=c(min(data_current$date),max(data_current$date)))
+}
+
+### Test positivity rate per district over time
+
+test.positivity<-data_current$positive_count/data_current$test_count
+
+par(mfrow=c(4,4),mar=c(4,4.5,1,0.5))
+for(i in 1:64){
+  plot(test.positivity[data_current$district==unique.districts[i]]~data_current$date[data_current$district==unique.districts[i]],xlab="Year",ylab="Test positivity",main=unique.districts[i],pch=16,cex=0.1,type="o",xlim=c(min(data_current$date),max(data_current$date)),ylim=c(0,1))
+}
+
+## Weekly data
+
+### Positive case count per district over time
+
+week_current<-isoweek(data_current$date)
+year_current<-year(data_current$date)
+week.since.2020_01_01<-ifelse(data_current$date<as.Date("2021-01-04"),week_current,week_current+53)
+
+unique.week.since.2020_01_01<-1:max(unique(week.since.2020_01_01))
+WB.since.2020_01_01<-seq(from=as.Date("2020-01-01"),by=7,length=max(unique(week.since.2020_01_01)))
+WB.dec.since.2020_01_01<-decimal_date(WB.since.2020_01_01)
+
+positive_count.mat.weekly.current<-matrix(nrow=length(unique.week.since.2020_01_01),ncol = 64)
+for(i in 1:64){
+  for(j in 1:length(unique.week.since.2020_01_01)){
+    positive_count.mat.weekly.current[j,i]<-sum(data_current$positive_count[data_current$district==unique.districts[i]&week.since.2020_01_01==unique.week.since.2020_01_01[j]])
+  }
+}
+positive_count.mat.weekly.current[is.nan(positive_count.mat.weekly.current)]<-0
+
+par(mfrow=c(4,4),mar=c(4,4.5,1,0.5))
+for(i in 1:64){
+  plot(positive_count.mat.weekly.current[,i]~WB.since.2020_01_01,xlab="Year",ylab="Positive count",main=unique.districts[i],pch=16,cex=0.1,type="o")
+}
+
+### Test count per district over time
+
+test_count.mat.weekly.current<-matrix(nrow=length(unique.week.since.2020_01_01),ncol = 64)
+for(i in 1:64){
+  for(j in 1:length(unique.week.since.2020_01_01)){
+    test_count.mat.weekly.current[j,i]<-sum(data_current$test_count[data_current$district==unique.districts[i]&week.since.2020_01_01==unique.week.since.2020_01_01[j]])
+  }
+}
+test_count.mat.weekly.current[is.nan(test_count.mat.weekly.current)]<-0
+
+par(mfrow=c(4,4),mar=c(4,4.5,1,0.5))
+for(i in 1:64){
+  plot(test_count.mat.weekly.current[,i]~WB.since.2020_01_01,xlab="Year",ylab="Test count",main=unique.districts[i],pch=16,cex=0.1,type="o")
+}
+
+### Test positivity rate per district over time
+
+test_positivity.mat.weekly.current<-positive_count.mat.weekly.current/test_count.mat.weekly.current
+test_positivity.mat.weekly.current[is.nan(test_positivity.mat.weekly.current)]<-NA
+
+par(mfrow=c(4,4),mar=c(4,4.5,1,0.5))
+for(i in 1:64){
+  plot(test_positivity.mat.weekly.current[,i]~WB.since.2020_01_01,xlab="Year",ylab="Test positivity",main=unique.districts[i],pch=16,cex=0.1,type="o")
+}
+
+## Monthly data
+
+### Positive case count per district over time
+
+month_current<-month(data_current$date)
+month.since.2020_01_01<-ifelse(year_current==2020,month_current,month_current+12)
+
+unique.month.since.2020_01_01<-1:13
+MB.since.2020_01_01<-seq(from=as.Date("2020-01-01"),by=7,length=13)
+MB.dec.since.2020_01_01<-decimal_date(MB.since.2020_01_01)
+
+positive_count.mat.monthly.current<-matrix(nrow=length(unique.month.since.2020_01_01),ncol = 64)
+for(i in 1:64){
+  for(j in 1:length(unique.month.since.2020_01_01)){
+    positive_count.mat.monthly.current[j,i]<-sum(data_current$positive_count[data_current$district==unique.districts[i]&month.since.2020_01_01==unique.month.since.2020_01_01[j]])
+  }
+}
+positive_count.mat.monthly.current[is.nan(positive_count.mat.monthly.current)]<-0
+
+par(mfrow=c(4,4),mar=c(4,4.5,1,0.5))
+for(i in 1:64){
+  plot(positive_count.mat.monthly.current[,i]~MB.since.2020_01_01,xlab="Year",ylab="Positive count",main=unique.districts[i],pch=16,cex=0.1,type="o")
+}
+
+### Test count per district over time
+
+test_count.mat.monthly.current<-matrix(nrow=length(unique.month.since.2020_01_01),ncol = 64)
+for(i in 1:64){
+  for(j in 1:length(unique.month.since.2020_01_01)){
+    test_count.mat.monthly.current[j,i]<-sum(data_current$test_count[data_current$district==unique.districts[i]&month.since.2020_01_01==unique.month.since.2020_01_01[j]])
+  }
+}
+test_count.mat.monthly.current[is.nan(test_count.mat.monthly.current)]<-0
+
+par(mfrow=c(4,4),mar=c(4,4.5,1,0.5))
+for(i in 1:64){
+  plot(test_count.mat.monthly.current[,i]~MB.since.2020_01_01,xlab="Year",ylab="Test count",main=unique.districts[i],pch=16,cex=0.1,type="o")
+}
+
+### Test positivity rate per district over time
+
+test_positivity.mat.monthly.current<-positive_count.mat.monthly.current/test_count.mat.monthly.current
+test_positivity.mat.monthly.current[is.nan(test_positivity.mat.monthly.current)]<-NA
+
+par(mfrow=c(4,4),mar=c(4,4.5,1,0.5))
+for(i in 1:64){
+  plot(test_positivity.mat.monthly.current[,i]~MB.since.2020_01_01,xlab="Year",ylab="Test positivity",main=unique.districts[i],pch=16,cex=0.1,type="o")
+}
+
+## Summary of data aggregation periods
+
+# Modelling
+
+## Exploratory modelling: GAMs
+
+r.sq.vec<-numeric(64)
+dev.expl.vec<-numeric(64)
+par(mfrow=c(4,4),mar=c(4,4.5,1,0.5))
+for(i in 1:64){
+  data1<-data.frame(week=1:max(unique(week.since.2020_01_01)),cases=positive_count.mat.weekly.current[,i])
+  gam1<-gam(cases~s(week),data=data1)
+  summary.gam1<-summary(gam1)
+  r.sq.vec[i]<-summary.gam1$r.sq
+  dev.expl.vec[i]<-summary.gam1$dev.expl
+  plot(gam1,residuals=TRUE,pch=16,cex=0.5,main=unique.districts[i],scheme=1)
+}
+
+cbind.data.frame(district=unique.districts,r.sq=round(r.sq.vec,3),dev.expl=round(dev.expl.vec,3))
+
+#### Modelling: ############################################################################################
+
+# Simple AR1 models, separate for each district:
+
+a1<-vector("list",64)
+p1<-vector("list",64)
+n.ahead<-1
+par(mfrow=c(4,4))
+for(i in 1:64){
+  a1[[i]]<-arima(positive_count.mat.weekly.current[,i],order = c(1,0,0))
+  p1[[i]]<-predict(a1[[i]],n.ahead=n.ahead)
+  plot(positive_count.mat.weekly.current[,i],xlim=c(1,nrow(positive_count.mat.weekly.current)+n.ahead),type="o",cex=0.5,
+       xlab="Week",ylab="Weekly cases",main=unique.districts[i])
+  points(nrow(positive_count.mat.weekly.current)+(1:n.ahead),p1[[i]]$pred,col=2,pch=16,type="o",lty=2,cex=0.5)
+  points(nrow(positive_count.mat.weekly.current)+(1:n.ahead),pmax(0,p1[[i]]$pred-1.96*p1[[i]]$se),col=2,pch=16,type="o",lty=2,cex=0.5)
+  points(nrow(positive_count.mat.weekly.current)+(1:n.ahead),p1[[i]]$pred+1.96*p1[[i]]$se,col=2,pch=16,type="o",lty=2,cex=0.5)
+}
+
+# Simple MA1 models, separate for each district:
+
+a2<-vector("list",64)
+p2<-vector("list",64)
+n.ahead<-1
+par(mfrow=c(4,4))
+for(i in 1:64){
+  a2[[i]]<-arima(positive_count.mat.weekly.current[,i],order = c(0,0,1))
+  p2[[i]]<-predict(a2[[i]],n.ahead=n.ahead)
+  plot(positive_count.mat.weekly.current[,i],xlim=c(1,nrow(positive_count.mat.weekly.current)+n.ahead),type="o",cex=0.5,
+       xlab="Week",ylab="Weekly cases",main=unique.districts[i])
+  points(nrow(positive_count.mat.weekly.current)+(1:n.ahead),p2[[i]]$pred,col=2,pch=16,type="o",lty=2,cex=0.5)
+  points(nrow(positive_count.mat.weekly.current)+(1:n.ahead),pmax(0,p2[[i]]$pred-1.96*p2[[i]]$se),col=2,pch=16,type="o",lty=2,cex=0.5)
+  points(nrow(positive_count.mat.weekly.current)+(1:n.ahead),p2[[i]]$pred+1.96*p2[[i]]$se,col=2,pch=16,type="o",lty=2,cex=0.5)
+}
+
+# Comparison:
+
+AIC.a1<-numeric(64);for(i in 1:64){AIC.a1[i]<-a1[[i]]$aic}
+AIC.a2<-numeric(64);for(i in 1:64){AIC.a2[i]<-a2[[i]]$aic}
+
+summary(AIC.a1)
+summary(AIC.a2)
+
+par(mfrow=c(1,1))
+plot(AIC.a1,AIC.a2);abline(0,1) # AR1 clearly more appropriate than MA1 from AICs.
+
+# How good are the models at predicting n steps ahead?
+
+a1.short<-vector("list",64)
+p1.short<-vector("list",64)
+n.ahead<-1
+par(mfrow=c(4,4))
+for(i in 1:64){
+  a1.short[[i]]<-arima(positive_count.mat.weekly.current[,i][-(nrow(positive_count.mat.weekly.current)-((n.ahead-1):0))],order = c(1,0,0))
+  p1.short[[i]]<-predict(a1.short[[i]],n.ahead=n.ahead)
+  plot(positive_count.mat.weekly.current[,i],xlim=c(1,nrow(positive_count.mat.weekly.current)),type="o",cex=0.5,
+       xlab="Week",ylab="Weekly cases",main=unique.districts[i])
+  points(nrow(positive_count.mat.weekly.current)+(1:n.ahead)-n.ahead,p1.short[[i]]$pred,col=2,pch=16,type="o",lty=2,cex=0.5)
+  points(nrow(positive_count.mat.weekly.current)+(1:n.ahead)-n.ahead,pmax(0,p1.short[[i]]$pred-1.96*p1.short[[i]]$se),col=2,pch=16,type="o",lty=2,cex=0.5)
+  points(nrow(positive_count.mat.weekly.current)+(1:n.ahead)-n.ahead,p1.short[[i]]$pred+1.96*p1.short[[i]]$se,col=2,pch=16,type="o",lty=2,cex=0.5)
+}
+
+a2.short<-vector("list",64)
+p2.short<-vector("list",64)
+n.ahead<-1
+par(mfrow=c(4,4))
+for(i in 1:64){
+  a2.short[[i]]<-arima(positive_count.mat.weekly.current[,i][-(nrow(positive_count.mat.weekly.current)-((n.ahead-1):0))],order = c(0,0,1))
+  p2.short[[i]]<-predict(a2.short[[i]],n.ahead=n.ahead)
+  plot(positive_count.mat.weekly.current[,i],xlim=c(1,nrow(positive_count.mat.weekly.current)),type="o",cex=0.5,
+       xlab="Week",ylab="Weekly cases",main=unique.districts[i])
+  points(nrow(positive_count.mat.weekly.current)+(1:n.ahead)-n.ahead,p2.short[[i]]$pred,col=2,pch=16,type="o",lty=2,cex=0.5)
+  points(nrow(positive_count.mat.weekly.current)+(1:n.ahead)-n.ahead,pmax(0,p2.short[[i]]$pred-1.96*p2.short[[i]]$se),col=2,pch=16,type="o",lty=2,cex=0.5)
+  points(nrow(positive_count.mat.weekly.current)+(1:n.ahead)-n.ahead,p2.short[[i]]$pred+1.96*p2.short[[i]]$se,col=2,pch=16,type="o",lty=2,cex=0.5)
+}
+
+p1.short.pred<-numeric(64);for(i in 1:64){p1.short.pred[i]<-p1.short[[i]]$pred}
+rmse.1step.a1<-sqrt(mean((p1.short.pred-positive_count.mat.weekly.current[nrow(positive_count.mat.weekly.current),])^2))
+
+p2.short.pred<-numeric(64);for(i in 1:64){p2.short.pred[i]<-p2.short[[i]]$pred}
+rmse.1step.a2<-sqrt(mean((p2.short.pred-positive_count.mat.weekly.current[nrow(positive_count.mat.weekly.current),])^2))
+
+#### Spatiotemporal conditional autoregressive modelling: BYM-CAR: #################
+
+# Data:
+
+shp1_orig<-readOGR(dsn="C:/Users/craig/OneDrive - University of Glasgow/Covid19_work/Bangladesh_Districts_Shapefile",layer = "Bangladesh_District") # Set dsn to folder containing the shapefile.
+
+shp1_orig$DISTNAME[!(shp1_orig$DISTNAME%in%unique.districts)]<-c("Barishal","Bogura","Chattogram","Cumilla","CoxsBazar","Jeshore","Moulvibazar","Chapainababganj")
+
+shp1<-spTransform(shp1_orig,CRS("+proj=longlat +datum=WGS84"))
+shp1.simp<-ms_simplify(shp1)
+
+par(mar=c(0,0,0,0))
+plot(shp1.simp)
+shadowtext(coordinates(shp1.simp),labels = shp1.simp$DISTNAME,cex=0.5,bg=0,col=1)
+
+nb1<-poly2nb(shp1.simp)
+Bang.adj <- nb2mat(nb1,style="B")
+
+par(mar=c(3,3,1,0.5))
+image(Bang.adj,xaxt="n",yaxt="n",col=grey.colors(100))
+box()
+axis(1,at=seq(0,1,length.out = 64),labels = shp1.simp$DISTNAME,las=2,cex.axis=0.325)
+axis(2,at=seq(0,1,length.out = 64),labels = shp1.simp$DISTNAME,las=2,cex.axis=0.325)
+
+shp1_covar<-readOGR("C:/Users/craig/OneDrive - University of Glasgow/Covid19_work/GIS-processed-data",layer="BGD_districts_v1")
+
+# Get data into correct format:
+data.resp<-matrix(ncol=length(16:(nrow(positive_count.mat.weekly.current)-1)),nrow=ncol(positive_count.mat.weekly.current))
+for(i in 1:64){
+  data.resp[i,]<-positive_count.mat.weekly.current[16:(nrow(positive_count.mat.weekly.current)-1),unique.districts==shp1.simp$DISTNAME[i]]
+}
+colnames(data.resp)<-paste0("WB_",WB.since.2020_01_01[16:(nrow(positive_count.mat.weekly.current)-1)])
+rownames(data.resp)<-shp1.simp$DISTNAME
+
+# Expected number of cases:
+prop.pop<-shp1_covar$POP/sum(shp1_covar$POP)
+E.st<-matrix(nrow=nrow(data.resp),ncol=ncol(data.resp))
+for(i in 1:ncol(E.st)){
+  E.st[,i]<-sum(data.resp[,i])*prop.pop
+}
+E.st<-as.vector(E.st)
+
+# Offset: tests:
+
+data.tests<-matrix(ncol=length(16:(nrow(test_count.mat.weekly.current)-1)),nrow=ncol(test_count.mat.weekly.current))
+for(i in 1:64){
+  data.tests[i,]<-test_count.mat.weekly.current[16:(nrow(test_count.mat.weekly.current)-1),unique.districts==shp1.simp$DISTNAME[i]]
+}
+colnames(data.tests)<-paste0("WB_",WB.since.2020_01_01[16:(nrow(test_count.mat.weekly.current)-1)])
+rownames(data.tests)<-shp1.simp$DISTNAME
+tests.offset<-as.vector(data.tests)
+
+# Modelling data setup:
+
+n.weeks<-length(16:(nrow(positive_count.mat.weekly.current)-1))
+
+data.covid.st<-cbind.data.frame(rep(1:64,n.weeks),
+                                rep(1:64,n.weeks),
+                                rep(1:64,n.weeks),
+                                rep(1:n.weeks,each=64),
+                                rep(1:n.weeks,each=64),
+                                rep(1:n.weeks,each=64),
+                                1:(n.weeks*64),
+                                as.vector(data.resp),
+                                rep(shp1_covar@data$DISTNAM,n.weeks),
+                                rep(WB.since.2020_01_01[16:(nrow(positive_count.mat.weekly.current)-1)],each=64),
+                                rep(WB.dec.since.2020_01_01[16:(nrow(positive_count.mat.weekly.current)-1)],each=64),
+                                rep(shp1_covar@data$M_TTHC,n.weeks),
+                                rep(shp1_covar@data$W_TTHC,n.weeks),
+                                rep(shp1_covar@data$Areakm2,n.weeks),
+                                rep(shp1_covar@data$doctors,n.weeks),
+                                rep(shp1_covar@data$hospitl,n.weeks),
+                                rep(shp1_covar@data$pharmcy,n.weeks),
+                                rep(shp1_covar@data$HUM_FP,n.weeks),
+                                rep(shp1_covar@data$railrod,n.weeks),
+                                rep(shp1_covar@data$prmry_r,n.weeks),
+                                rep(shp1_covar@data$scndry_,n.weeks),
+                                rep(shp1_covar@data$trtry_r,n.weeks),
+                                rep(shp1_covar@data$pov_men,n.weeks),
+                                rep(shp1_covar@data$elev_men,n.weeks),
+                                rep(shp1_covar@data$pdens_men,n.weeks))
+colnames(data.covid.st)<-c("ID.district","ID.district1","ID.district.int","ID.year","ID.year1","ID.year.int","ID.district.year","cases","DISTNAME","dates.data","dates.data.dec","M_TTHC","W_TTHC","Areakm2","doctors","hospitl",
+                           "pharmcy","HUM_FP","railrod","prmry_r","Scndry_","trtry_r","pov_men","elev_men","pdens_men")
+
+## Simplest models, with weekly cases as response:
+
+# Model 1: no covariates, no interactions 
+
+# mod.covid.st1<-inla(cases~1+f(ID.district,model="bym",graph=Bang.adj,scale.model = TRUE,
+#                               hyper=list(prec.unstruct=list(prior="loggamma",param=c(1,0.001)),
+#                                          prec.spatial=list(prior="loggamma",param=c(1,0.001))
+#                               )
+# )+f(ID.district1,dates.data.dec,model="iid",constr=TRUE)
+# +dates.data.dec,
+# family = "poisson",data=data.covid.st,E=E.st,control.compute = list(dic=TRUE,waic=TRUE)
+# )
+
+load("C:/Users/craig/OneDrive - University of Glasgow/Covid19_work/analysis_data_warehouse_2021_03_26/mod_covid_st1.RData")
+
+summary(mod.covid.st1)
+
+# save(mod.covid.st1,file="C:/Users/craig/OneDrive - University of Glasgow/Covid19_work/analysis_data_warehouse_2021_03_26/mod_covid_st1.RData")
+
+# plot(mod.covid.st1)
+
+m1<-mod.covid.st1$marginals.random[[1]][1:64]
+zeta.st1<-unlist(lapply(m1,function(x)inla.emarginal(exp,x)))
+
+m2<-mod.covid.st1$marginals.random[[2]][1:64]
+delta.st1<-unlist(lapply(m2,function(x)inla.emarginal(exp,x)))
+
+shp1.mod.covid.st1<-shp1.simp
+
+shp1.mod.covid.st1@data$zeta.st1<-zeta.st1
+shp1.mod.covid.st1@data$delta.st1<-delta.st1
+
+spplot(shp1.mod.covid.st1,"zeta.st1",scales=list(draw=TRUE),xlab="Longitude (degrees East)",ylab="Latitude (degrees North)",main="zeta.st1")
+spplot(shp1.mod.covid.st1,"delta.st1",scales=list(draw=TRUE),xlab="Longitude (degrees East)",ylab="Latitude (degrees North)",main="delta.st1")
+
+
+# Model 2: no covariates, RW order 1, no interactions
+
+
+lcs.st2<-inla.make.lincombs(ID.year=diag(10),ID.year1=diag(10))
+
+mod.covid.st2<-inla(cases~1+f(ID.district,model="bym",graph=Bang.adj,scale.model = TRUE,
+                              hyper=list(prec.unstruct=list(prior="loggamma",param=c(1,0.001)),
+                                         prec.spatial=list(prior="loggamma",param=c(1,0.001))
+                              )
+)+f(ID.year,model="rw1")
++f(ID.year1,model="iid"),
+family = "poisson",data=data.covid.st,E=E.st,control.compute = list(dic=TRUE,waic=TRUE),lincomb = lcs.st2
+)
+
+load("C:/Users/craig/OneDrive - University of Glasgow/Covid19_work/analysis_data_warehouse_2021_03_26/mod_covid_st2.RData")
+
+# save(mod.covid.st2,file="C:/Users/craig/OneDrive - University of Glasgow/Covid19_work/analysis_data_warehouse_2021_03_26/mod_covid_st2.RData")
+
+temporal.CAR.st2 <- lapply(mod.covid.st2$marginals.random$ID.year,
+                           function(X){
+                             marg <- inla.tmarginal(function(x) exp(x), X)
+                             inla.emarginal(mean, marg)
+                           })
+temporal.IID.st2 <- lapply(mod.covid.st2$marginals.random$ID.year1,
+                           function(X){
+                             marg <- inla.tmarginal(function(x) exp(x), X)
+                             inla.emarginal(mean, marg)
+                           })
+plot(unlist(temporal.IID.st2)~WB.dec.since.2020_01_01[16:(nrow(positive_count.mat.weekly.current)-1)],lty=2,type="l",xlab="Year",ylab="Value",main="Random walk of order 1",ylim=c(min(unlist(temporal.CAR.st2)),max(unlist(temporal.CAR.st2))))
+lines(unlist(temporal.CAR.st2)~WB.dec.since.2020_01_01[16:(nrow(positive_count.mat.weekly.current)-1)],type="l")
+legend("topleft",legend=c(expression(paste("exp("*gamma["t"]*")")),expression(paste("exp("*phi["t"]*")"))),lty=1:2,bty="n")
+abline(h=1,col="grey",lty=3)
+# don't save as .../Covid19_work/st_formulation_1_figures/rw1_noCov.png at 500 by 531 pixels.
+
+summary(mod.covid.st2)
+
+m1.st2<-mod.covid.st2$marginals.random[[1]][1:64]
+zeta.st2<-unlist(lapply(m1.st2,function(x)inla.emarginal(exp,x)))
+
+shp1.mod.covid.st2<-shp1.simp
+
+shp1.mod.covid.st2@data$zeta.st2<-zeta.st2
+
+spplot(shp1.mod.covid.st2,"zeta.st2",scales=list(draw=TRUE),xlab="Longitude (degrees East)",ylab="Latitude (degrees North)",main="zeta.st2")
+# don't save as .../Covid19_work/st_formulation_1_figures/zeta_st2_noCov.png at 500 by 531 pixels.
+
+mod.covid.st2$dic$dic
+mod.covid.st2$waic$waic
+
+
+# Model 3: no covariates, RW order 2, no interactions
+
+
+# mod.covid.st3<-inla(cases~1+f(ID.district,model="bym",graph=Bang.adj,scale.model = TRUE,
+#                               hyper=list(prec.unstruct=list(prior="loggamma",param=c(1,0.001)),
+#                                          prec.spatial=list(prior="loggamma",param=c(1,0.001))
+#                               )
+# )+f(ID.year,model="rw2")
+# +f(ID.year1,model="iid"),
+# family = "poisson",data=data.covid.st,E=E.st,control.compute = list(dic=TRUE,waic=TRUE),lincomb = lcs.st2
+# )
+
+load("C:/Users/craig/OneDrive - University of Glasgow/Covid19_work/analysis_data_warehouse_2021_03_26/mod_covid_st3.RData")
+
+# save(mod.covid.st3,file="C:/Users/craig/OneDrive - University of Glasgow/Covid19_work/analysis_data_warehouse_2021_03_26/mod_covid_st3.RData")
+
+temporal.CAR.st3 <- lapply(mod.covid.st3$marginals.random$ID.year,
+                           function(X){
+                             marg <- inla.tmarginal(function(x) exp(x), X)
+                             inla.emarginal(mean, marg)
+                           })
+temporal.IID.st3 <- lapply(mod.covid.st3$marginals.random$ID.year1,
+                           function(X){
+                             marg <- inla.tmarginal(function(x) exp(x), X)
+                             inla.emarginal(mean, marg)
+                           })
+plot(unlist(temporal.IID.st3)~WB.dec.since.2020_01_01[16:(nrow(positive_count.mat.weekly.current)-1)],lty=2,type="l",xlab="Year",ylab="Value",main="Random walk of order 2",ylim=c(min(unlist(temporal.CAR.st3)),max(unlist(temporal.CAR.st3))))
+lines(unlist(temporal.CAR.st3)~WB.dec.since.2020_01_01[16:(nrow(positive_count.mat.weekly.current)-1)],type="l")
+legend("topleft",legend=c(expression(paste("exp("*gamma["t"]*")")),expression(paste("exp("*phi["t"]*")"))),lty=1:2,bty="n")
+abline(h=1,col="grey",lty=3)
+# don't save as .../Covid19_work/st_formulation_1_figures/rw2_noCov.png at 500 by 531 pixels.
+
+summary(mod.covid.st3)
+
+m1.st3<-mod.covid.st3$marginals.random[[1]][1:64]
+zeta.st3<-unlist(lapply(m1.st3,function(x)inla.emarginal(exp,x)))
+
+shp1.mod.covid.st3<-shp1.simp
+
+shp1.mod.covid.st3@data$zeta.st3<-zeta.st3
+
+spplot(shp1.mod.covid.st3,"zeta.st3",scales=list(draw=TRUE),xlab="Longitude (degrees East)",ylab="Latitude (degrees North)",main="zeta.st3")
+# don't save as .../Covid19_work/st_formulation_1_figures/zeta_st3_noCov.png at 500 by 531 pixels.
+
+mod.covid.st3$dic$dic
+mod.covid.st3$waic$waic
+
+
+# Model 4: no covariates, RW order 1, type I interaction
+
+
+WB.2.since.2020_01_01<-paste0("WB.",substr(make.names(WB.since.2020_01_01),2,100))
+
+# mod.covid.st4<-inla(cases~1+f(ID.district,model="bym",graph=Bang.adj,scale.model = TRUE,
+#                               hyper=list(prec.unstruct=list(prior="loggamma",param=c(1,0.001)),
+#                                          prec.spatial=list(prior="loggamma",param=c(1,0.001))
+#                               )
+# )+f(ID.year,model="rw1")
+# +f(ID.year1,model="iid")
+# +f(ID.district.year,model="iid"),
+# family = "poisson",data=data.covid.st,E=E.st,control.compute = list(dic=TRUE,waic=TRUE)
+# )
+
+load("C:/Users/craig/OneDrive - University of Glasgow/Covid19_work/analysis_data_warehouse_2021_03_26/mod_covid_st4.RData")
+
+# save(mod.covid.st4,file="C:/Users/craig/OneDrive - University of Glasgow/Covid19_work/analysis_data_warehouse_2021_03_26/mod_covid_st4.RData")
+
+temporal.CAR.st4 <- lapply(mod.covid.st4$marginals.random$ID.year,
+                           function(X){
+                             marg <- inla.tmarginal(function(x) exp(x), X)
+                             inla.emarginal(mean, marg)
+                           })
+temporal.IID.st4 <- lapply(mod.covid.st4$marginals.random$ID.year1,
+                           function(X){
+                             marg <- inla.tmarginal(function(x) exp(x), X)
+                             inla.emarginal(mean, marg)
+                           })
+plot(unlist(temporal.IID.st4)~WB.dec.since.2020_01_01[16:(nrow(positive_count.mat.weekly.current)-1)],lty=2,type="l",xlab="Year",ylab="Value",main="Random walk of order 1",ylim=c(min(unlist(temporal.CAR.st4)),max(unlist(temporal.CAR.st4))))
+lines(unlist(temporal.CAR.st4)~WB.dec.since.2020_01_01[16:(nrow(positive_count.mat.weekly.current)-1)],type="l")
+legend("topleft",legend=c(expression(paste("exp("*gamma["t"]*")")),expression(paste("exp("*phi["t"]*")"))),lty=1:2,bty="n")
+abline(h=1,col="grey",lty=3)
+# don't save as .../Covid19_work/st_formulation_1_figures/rw2_st4_noCov.png at 500 by 531 pixels.
+
+summary(mod.covid.st4)
+
+m1.st4<-mod.covid.st4$marginals.random[[1]][1:64]
+zeta.st4<-unlist(lapply(m1.st4,function(x)inla.emarginal(exp,x)))
+
+shp1.mod.covid.st4<-shp1.simp
+
+shp1.mod.covid.st4@data$zeta.st4<-zeta.st4
+
+spplot(shp1.mod.covid.st4,"zeta.st4",xlab="Longitude (degrees East)",ylab="Latitude (degrees North)",scales=list(draw=TRUE),main="zeta.st4")
+# don't save as .../Covid19_work/st_formulation_1_figures/zeta_st4_noCov.png at 500 by 531 pixels.
+
+delta.int.st4<-data.frame(delta=mod.covid.st4$summary.random$ID.district.year[,2],week=data.covid.st$ID.year,ID.district=data.covid.st$ID.district)
+delta.int.st4.matrix<-matrix(delta.int.st4[,1],64,n.weeks,byrow=FALSE)
+rownames(delta.int.st4.matrix)<-data.covid.st$DISTNAME[1:64]
+colnames(delta.int.st4.matrix)<-WB.2.since.2020_01_01[16:(nrow(positive_count.mat.weekly.current)-1)]
+
+shp4<-shp1.mod.covid.st4
+shp4@data<-cbind.data.frame(shp1.mod.covid.st4@data$DISTNAME,delta.int.st4.matrix)
+spplot(shp4)
+# don't save as .../Covid19_work/st_formulation_1_figures/delta_st4_noCov.png at 700 by 700 pixels.
+
+plot(delta.int.st4.matrix[1,],type="o",xlab="Fortnight",ylab="delta.st4",ylim=c(min(delta.int.st4.matrix),max(delta.int.st4.matrix)))
+for(i in 2:nrow(delta.int.st4.matrix)){
+  points(delta.int.st4.matrix[i,],type="o",pch=rep(1:25,3)[i],col=i,lty=i)
+}
+
+mod.covid.st4$dic$dic
+mod.covid.st4$waic$waic
+
+
+# Model 5: no covariates, RW order 1, type II interaction
+
+
+# mod.covid.st5<-inla(cases~1+f(ID.district,model="bym",graph=Bang.adj,scale.model = TRUE,
+#                               hyper=list(prec.unstruct=list(prior="loggamma",param=c(1,0.001)),
+#                                          prec.spatial=list(prior="loggamma",param=c(1,0.001))
+#                               )
+# )+f(ID.year,model="rw1")
+# +f(ID.year1,model="iid")
+# +f(ID.district.int,model="iid",group=ID.year.int,control.group = list(model="rw1")),
+# family = "poisson",data=data.covid.st,E=E.st,control.compute = list(dic=TRUE,waic=TRUE)
+# )
+
+load("C:/Users/craig/OneDrive - University of Glasgow/Covid19_work/analysis_data_warehouse_2021_03_26/mod_covid_st5.RData")
+
+# save(mod.covid.st5,file="C:/Users/craig/OneDrive - University of Glasgow/Covid19_work/analysis_data_warehouse_2021_03_26/mod_covid_st5.RData")
+
+temporal.CAR.st5 <- lapply(mod.covid.st5$marginals.random$ID.year,
+                           function(X){
+                             marg <- inla.tmarginal(function(x) exp(x), X)
+                             inla.emarginal(mean, marg)
+                           })
+temporal.IID.st5 <- lapply(mod.covid.st5$marginals.random$ID.year1,
+                           function(X){
+                             marg <- inla.tmarginal(function(x) exp(x), X)
+                             inla.emarginal(mean, marg)
+                           })
+plot(unlist(temporal.IID.st5)~WB.dec.since.2020_01_01[16:(nrow(positive_count.mat.weekly.current)-1)],lty=2,type="l",xlab="Year",ylab="Value",main="Random walk of order 1",ylim=c(min(c(unlist(temporal.CAR.st5),unlist(temporal.IID.st5))),max(c(unlist(temporal.CAR.st5),unlist(temporal.IID.st5)))))
+lines(unlist(temporal.CAR.st5)~WB.dec.since.2020_01_01[16:(nrow(positive_count.mat.weekly.current)-1)],type="l")
+legend("topleft",legend=c(expression(paste("exp("*gamma["t"]*")")),expression(paste("exp("*phi["t"]*")"))),lty=1:2,bty="n")
+abline(h=1,col="grey",lty=3)
+# don't save as .../Covid19_work/st_formulation_1_figures/rw2_st5_noCov.png at 500 by 531 pixels.
+
+summary(mod.covid.st5)
+
+m1.st5<-mod.covid.st5$marginals.random[[1]][1:64]
+zeta.st5<-unlist(lapply(m1.st5,function(x)inla.emarginal(exp,x)))
+
+shp1.mod.covid.st5<-shp1.simp
+
+shp1.mod.covid.st5@data$zeta.st5<-zeta.st5
+
+spplot(shp1.mod.covid.st5,"zeta.st5",xlab="Longitude (degrees East)",ylab="Latitude (degrees North)",scales=list(draw=TRUE),main="zeta.st5")
+# don't save as .../Covid19_work/st_formulation_1_figures/zeta_st5_noCov.png at 500 by 531 pixels.
+
+delta.int.st5<-data.frame(delta=mod.covid.st5$summary.random$ID.district.int[,2],week=data.covid.st$ID.year,ID.district=data.covid.st$ID.district)
+delta.int.st5.matrix<-matrix(delta.int.st5[,1],64,n.weeks,byrow=FALSE)
+rownames(delta.int.st5.matrix)<-data.covid.st$DISTNAME[1:64]
+colnames(delta.int.st5.matrix)<-WB.2.since.2020_01_01[16:(nrow(positive_count.mat.weekly.current)-1)]
+
+shp5<-shp1.mod.covid.st5
+shp5@data<-cbind.data.frame(shp1.mod.covid.st5@data$DISTNAME,delta.int.st5.matrix)
+spplot(shp5)
+# don't save as .../Covid19_work/st_formulation_1_figures/delta_st5_noCov.png at 700 by 700 pixels.
+
+mod.covid.st5$dic$dic
+mod.covid.st5$waic$waic
+
+
+# Model 6: no covariates, RW order 1, type III interaction
+
+
+# mod.covid.st6<-inla(cases~1+f(ID.district,model="bym",graph=Bang.adj,scale.model = TRUE,
+#                               hyper=list(prec.unstruct=list(prior="loggamma",param=c(1,0.001)),
+#                                          prec.spatial=list(prior="loggamma",param=c(1,0.001))
+#                               )
+# )+f(ID.year,model="rw1")
+# +f(ID.year1,model="iid")
+# +f(ID.year.int,model="iid",group=ID.district.int,control.group = list(model="besag",graph=Bang.adj)),
+# family = "poisson",data=data.covid.st,E=E.st,control.compute = list(dic=TRUE,waic=TRUE)
+# )
+
+load("C:/Users/craig/OneDrive - University of Glasgow/Covid19_work/analysis_data_warehouse_2021_03_26/mod_covid_st6.RData")
+
+# save(mod.covid.st6,file="C:/Users/craig/OneDrive - University of Glasgow/Covid19_work/analysis_data_warehouse_2021_03_26/mod_covid_st6.RData")
+
+temporal.CAR.st6 <- lapply(mod.covid.st6$marginals.random$ID.year,
+                           function(X){
+                             marg <- inla.tmarginal(function(x) exp(x), X)
+                             inla.emarginal(mean, marg)
+                           })
+temporal.IID.st6 <- lapply(mod.covid.st6$marginals.random$ID.year1,
+                           function(X){
+                             marg <- inla.tmarginal(function(x) exp(x), X)
+                             inla.emarginal(mean, marg)
+                           })
+plot(unlist(temporal.IID.st6)~WB.dec.since.2020_01_01[16:(nrow(positive_count.mat.weekly.current)-1)],lty=2,type="l",xlab="Year",ylab="Value",main="Random walk of order 1",ylim=c(min(unlist(temporal.CAR.st6)),max(unlist(temporal.CAR.st6))))
+lines(unlist(temporal.CAR.st6)~WB.dec.since.2020_01_01[16:(nrow(positive_count.mat.weekly.current)-1)],type="l")
+legend("topleft",legend=c(expression(paste("exp("*gamma["t"]*")")),expression(paste("exp("*phi["t"]*")"))),lty=1:2,bty="n")
+abline(h=1,col="grey",lty=3)
+# don't save as .../Covid19_work/st_formulation_1_figures/rw2_st6_noCov.png at 500 by 531 pixels.
+
+summary(mod.covid.st6)
+
+m1.st6<-mod.covid.st6$marginals.random[[1]][1:64]
+zeta.st6<-unlist(lapply(m1.st6,function(x)inla.emarginal(exp,x)))
+
+shp1.mod.covid.st6<-shp1.simp
+
+shp1.mod.covid.st6@data$zeta.st6<-zeta.st6
+
+spplot(shp1.mod.covid.st6,"zeta.st6",xlab="Longitude (degrees East)",ylab="Latitude (degrees North)",scales=list(draw=TRUE),main="zeta.st6")
+# don't save as .../Covid19_work/st_formulation_1_figures/zeta_st6_noCov.png at 500 by 531 pixels.
+
+delta.int.st6<-data.frame(delta=mod.covid.st6$summary.random$ID.year.int[,2],week=data.covid.st$ID.year,ID.district=data.covid.st$ID.district)
+delta.int.st6.matrix<-matrix(delta.int.st6[,1],64,n.weeks,byrow=FALSE)
+rownames(delta.int.st6.matrix)<-data.covid.st$DISTNAME[1:64]
+colnames(delta.int.st6.matrix)<-WB.2.since.2020_01_01[16:(nrow(positive_count.mat.weekly.current)-1)]
+
+shp6<-shp1.mod.covid.st6
+shp6@data<-cbind.data.frame(shp1.mod.covid.st6@data$DISTNAME,delta.int.st6.matrix)
+spplot(shp6)
+# don't save as .../Covid19_work/st_formulation_1_figures/delta_st6_noCov.png at 700 by 700 pixels.
+
+mod.covid.st6$dic$dic
+mod.covid.st6$waic$waic
+
+
+# Model 7: no covariates, RW order 1, type IV interaction
+
+
+# mod.covid.st7<-inla(cases~1+f(ID.district,model="bym",graph=Bang.adj,scale.model = TRUE,
+#                               hyper=list(prec.unstruct=list(prior="loggamma",param=c(1,0.001)),
+#                                          prec.spatial=list(prior="loggamma",param=c(1,0.001))
+#                               )
+# )+f(ID.year,model="rw1")
+# +f(ID.year1,model="iid")
+# +f(ID.district.int,model="besag",graph=Bang.adj,group=ID.year.int,control.group = list(model="rw1")),
+# family = "poisson",data=data.covid.st,E=E.st,control.compute = list(dic=TRUE,waic=TRUE)
+# )
+
+load("C:/Users/craig/OneDrive - University of Glasgow/Covid19_work/analysis_data_warehouse_2021_03_26/mod_covid_st7.RData")
+
+# save(mod.covid.st7,file="C:/Users/craig/OneDrive - University of Glasgow/Covid19_work/analysis_data_warehouse_2021_03_26/mod_covid_st7.RData")
+
+temporal.CAR.st7 <- lapply(mod.covid.st7$marginals.random$ID.year,
+                           function(X){
+                             marg <- inla.tmarginal(function(x) exp(x), X)
+                             inla.emarginal(mean, marg)
+                           })
+temporal.IID.st7 <- lapply(mod.covid.st7$marginals.random$ID.year1,
+                           function(X){
+                             marg <- inla.tmarginal(function(x) exp(x), X)
+                             inla.emarginal(mean, marg)
+                           })
+plot(unlist(temporal.IID.st7)~WB.dec.since.2020_01_01[16:(nrow(positive_count.mat.weekly.current)-1)],lty=2,type="l",xlab="Year",ylab="Value",main="Random walk of order 1",ylim=c(min(unlist(temporal.CAR.st7)),max(unlist(temporal.CAR.st7))))
+lines(unlist(temporal.CAR.st7)~WB.dec.since.2020_01_01[16:(nrow(positive_count.mat.weekly.current)-1)],type="l")
+legend("topleft",legend=c(expression(paste("exp("*gamma["t"]*")")),expression(paste("exp("*phi["t"]*")"))),lty=1:2,bty="n")
+abline(h=1,col="grey",lty=3)
+# don't save as .../Covid19_work/st_formulation_1_figures/rw2_st7_noCov.png at 500 by 531 pixels.
+
+summary(mod.covid.st7)
+
+m1.st7<-mod.covid.st7$marginals.random[[1]][1:64]
+zeta.st7<-unlist(lapply(m1.st7,function(x)inla.emarginal(exp,x)))
+
+shp1.mod.covid.st7<-shp1.simp
+
+shp1.mod.covid.st7@data$zeta.st7<-zeta.st7
+
+spplot(shp1.mod.covid.st7,"zeta.st7",xlab="Longitude (degrees East)",ylab="Latitude (degrees North)",scales=list(draw=TRUE),main="zeta.st7")
+# don't save as .../Covid19_work/st_formulation_1_figures/zeta_st7_noCov.png at 500 by 531 pixels.
+
+delta.int.st7<-data.frame(delta=mod.covid.st7$summary.random$ID.district.int[,2],week=data.covid.st$ID.year,ID.district=data.covid.st$ID.district)
+delta.int.st7.matrix<-matrix(delta.int.st7[,1],64,n.weeks,byrow=FALSE)
+rownames(delta.int.st7.matrix)<-data.covid.st$DISTNAME[1:64]
+colnames(delta.int.st7.matrix)<-WB.2.since.2020_01_01[16:(nrow(positive_count.mat.weekly.current)-1)]
+
+shp7<-shp1.mod.covid.st7
+shp7@data<-cbind.data.frame(shp1.mod.covid.st7@data$DISTNAME,delta.int.st7.matrix)
+spplot(shp7)
+# don't save as .../Covid19_work/st_formulation_1_figures/delta_st7_noCov.png at 700 by 700 pixels.
+
+mod.covid.st7$dic$dic
+mod.covid.st7$waic$waic
+
+
+# Comparison of models:
+  
+
+cbind.data.frame(dic=c(mod.covid.st1$dic$dic,mod.covid.st2$dic$dic,mod.covid.st3$dic$dic,mod.covid.st4$dic$dic,mod.covid.st5$dic$dic,mod.covid.st6$dic$dic,mod.covid.st7$dic$dic),waic=c(mod.covid.st1$waic$waic,mod.covid.st2$waic$waic,mod.covid.st3$waic$waic,mod.covid.st4$waic$waic,mod.covid.st5$waic$waic,mod.covid.st6$waic$waic,mod.covid.st7$waic$waic))
+
+
+#### Predictions from models: ####
+
+data.covid.st.missing<-data.covid.st;data.covid.st.missing$cases[nrow(data.covid.st.missing)-(63:0)]<-NA
+
+# mod.covid.st1a<-inla(cases~1+f(ID.district,model="bym",graph=Bang.adj,scale.model = TRUE,
+#                               hyper=list(prec.unstruct=list(prior="loggamma",param=c(1,0.001)),
+#                                          prec.spatial=list(prior="loggamma",param=c(1,0.001))
+#                               )
+# )+f(ID.district1,dates.data.dec,model="iid",constr=TRUE)
+# +dates.data.dec,
+# family = "poisson",data=data.covid.st.missing,E=E.st,control.compute = list(dic=TRUE,waic=TRUE),
+# control.predictor = list(compute=TRUE,link=1)
+# )
+
+load("C:/Users/craig/OneDrive - University of Glasgow/Covid19_work/analysis_data_warehouse_2021_03_26/mod_covid_st1a.RData")
+
+# save(mod.covid.st1a,file="C:/Users/craig/OneDrive - University of Glasgow/Covid19_work/analysis_data_warehouse_2021_03_26/mod_covid_st1a.RData")
+
+summary(mod.covid.st1a)
+
+mod.covid.st1a$summary.fitted.values
+
+head(mod.covid.st1a$summary.fitted.values)
+head(data.covid.st.missing$cases)
+
+plot(mod.covid.st1a$summary.fitted.values$mean*E.st,data.covid.st.missing$cases);abline(0,1)
+
+pred.mat.st1a<-matrix(mod.covid.st1a$summary.fitted.values$`0.5quant`*E.st,nrow=64,ncol=n.weeks)
+lwrbnd.mat.st1a<-matrix(mod.covid.st1a$summary.fitted.values$`0.025quant`*E.st,nrow=64,ncol=n.weeks)
+uprbnd.mat.st1a<-matrix(mod.covid.st1a$summary.fitted.values$`0.975quant`*E.st,nrow=64,ncol=n.weeks)
+par(mfrow=c(4,4),mar=c(4,4.5,1,0.5))
+for(i in 1:64){
+  plot(data.resp[i,],type="o",xlab="Week",ylab="Cases",main=shp1.simp$DISTNAME[i],xlim=c(1,n.weeks),pch=16,cex=0.5,
+       ylim=c(min(c(data.resp[i,],lwrbnd.mat.st1a[i,])),max(c(data.resp[i,],uprbnd.mat.st1a[i,]))))
+  points(pred.mat.st1a[i,],col=2,type="o",pch=16,cex=0.5)
+  points(lwrbnd.mat.st1a[i,],col=2,type="l")
+  points(uprbnd.mat.st1a[i,],col=2,type="l")
+}
+par(mfrow=c(1,1),mar=c(4,4.5,1,0.5))
+
+
+#
+
+# mod.covid.st4a<-inla(cases~1+f(ID.district,model="bym",graph=Bang.adj,scale.model = TRUE,
+#                               hyper=list(prec.unstruct=list(prior="loggamma",param=c(1,0.001)),
+#                                          prec.spatial=list(prior="loggamma",param=c(1,0.001))
+#                               )
+# )+f(ID.year,model="rw1")
+# +f(ID.year1,model="iid")
+# +f(ID.district.year,model="iid"),
+# family = "poisson",data=data.covid.st.missing,E=E.st,control.compute = list(dic=TRUE,waic=TRUE),
+# control.predictor=list(compute=TRUE,link=1)
+# )
+
+load("C:/Users/craig/OneDrive - University of Glasgow/Covid19_work/analysis_data_warehouse_2021_03_26/mod_covid_st4a.RData")
+
+# save(mod.covid.st4a,file="C:/Users/craig/OneDrive - University of Glasgow/Covid19_work/analysis_data_warehouse_2021_03_26/mod_covid_st4a.RData")
+
+summary(mod.covid.st4a)
+
+mod.covid.st4a$summary.fitted.values
+
+head(mod.covid.st4a$summary.fitted.values)
+head(data.covid.st.missing$cases)
+
+plot(mod.covid.st4a$summary.fitted.values$mean*E.st,data.covid.st.missing$cases);abline(0,1)
+plot((mod.covid.st4a$summary.fitted.values$mean*E.st)[nrow(mod.covid.st4a$summary.fitted.values)-(63:0)],data.covid.st$cases[nrow(mod.covid.st4a$summary.fitted.values)-(63:0)]);abline(0,1)
+
+pred.mat.st4a<-matrix(mod.covid.st4a$summary.fitted.values$`0.5quant`*E.st,nrow=64,ncol=n.weeks)
+lwrbnd.mat.st4a<-matrix(mod.covid.st4a$summary.fitted.values$`0.025quant`*E.st,nrow=64,ncol=n.weeks)
+uprbnd.mat.st4a<-matrix(mod.covid.st4a$summary.fitted.values$`0.975quant`*E.st,nrow=64,ncol=n.weeks)
+par(mfrow=c(4,4),mar=c(4,4.5,1,0.5))
+for(i in 1:64){
+  plot(data.resp[i,],type="o",xlab="Week",ylab="Cases",main=shp1.simp$DISTNAME[i],xlim=c(1,n.weeks),pch=16,cex=0.5,
+       ylim=c(min(c(data.resp[i,],lwrbnd.mat.st4a[i,])),max(c(data.resp[i,],uprbnd.mat.st4a[i,]))))
+  points(pred.mat.st4a[i,],col=2,type="o",pch=16,cex=0.5)
+  points(lwrbnd.mat.st4a[i,],col=2,type="l")
+  points(uprbnd.mat.st4a[i,],col=2,type="l")
+}
+par(mfrow=c(1,1),mar=c(4,4.5,1,0.5))
+
+
+# no offset?
+
+# mod.covid.st4b<-inla(cases~1+f(ID.district,model="bym",graph=Bang.adj,scale.model = TRUE,
+#                                hyper=list(prec.unstruct=list(prior="loggamma",param=c(1,0.001)),
+#                                           prec.spatial=list(prior="loggamma",param=c(1,0.001))
+#                                )
+# )+f(ID.year,model="rw1")
+# +f(ID.year1,model="iid")
+# +f(ID.district.year,model="iid"),
+# family = "poisson",data=data.covid.st.missing,control.compute = list(dic=TRUE,waic=TRUE),
+# control.predictor=list(compute=TRUE,link=1)
+# )
+
+load("C:/Users/craig/OneDrive - University of Glasgow/Covid19_work/analysis_data_warehouse_2021_03_26/mod_covid_st4b.RData")
+
+# save(mod.covid.st4b,file="C:/Users/craig/OneDrive - University of Glasgow/Covid19_work/analysis_data_warehouse_2021_03_26/mod_covid_st4b.RData")
+
+summary(mod.covid.st4b)
+
+mod.covid.st4b$summary.fitted.values
+
+head(mod.covid.st4b$summary.fitted.values)
+head(data.covid.st.missing$cases)
+
+plot(mod.covid.st4b$summary.fitted.values$mean,data.covid.st.missing$cases)
+abline(0,1)
+
+plot(mod.covid.st4b$summary.fitted.values$mean[nrow(mod.covid.st4b$summary.fitted.values)-(63:0)],data.covid.st$cases[nrow(mod.covid.st4b$summary.fitted.values)-(63:0)],xlab="Predictions",ylab="Observed cases");abline(0,1)
+
+pred.mat.st4b<-matrix(mod.covid.st4b$summary.fitted.values$`0.5quant`,nrow=64,ncol=n.weeks)
+lwrbnd.mat.st4b<-matrix(mod.covid.st4b$summary.fitted.values$`0.025quant`,nrow=64,ncol=n.weeks)
+uprbnd.mat.st4b<-matrix(mod.covid.st4b$summary.fitted.values$`0.975quant`,nrow=64,ncol=n.weeks)
+par(mfrow=c(4,4),mar=c(4,4.5,1,0.5))
+for(i in 1:64){
+  plot(data.resp[i,],type="o",xlab="Week",ylab="Cases",main=shp1.simp$DISTNAME[i],xlim=c(1,n.weeks),pch=16,cex=0.5,
+       ylim=c(min(c(data.resp[i,],lwrbnd.mat.st4b[i,])),max(c(data.resp[i,],uprbnd.mat.st4b[i,]))))
+  points(pred.mat.st4b[i,],col=2,type="o",pch=16,cex=0.5)
+  points(lwrbnd.mat.st4b[i,],col=2,type="l")
+  points(uprbnd.mat.st4b[i,],col=2,type="l")
+}
+par(mfrow=c(1,1),mar=c(4,4.5,1,0.5))
+
+
+#
+
+# mod.covid.st5a<-inla(cases~1+f(ID.district,model="bym",graph=Bang.adj,scale.model = TRUE,
+#                               hyper=list(prec.unstruct=list(prior="loggamma",param=c(1,0.001)),
+#                                          prec.spatial=list(prior="loggamma",param=c(1,0.001))
+#                               )
+# )+f(ID.year,model="rw1")
+# +f(ID.year1,model="iid")
+# +f(ID.district.int,model="iid",group=ID.year.int,control.group = list(model="rw1")),
+# family = "poisson",data=data.covid.st.missing,E=E.st,control.compute = list(dic=TRUE,waic=TRUE),
+# control.predictor=list(compute=TRUE,link=1)
+# )
+
+load("C:/Users/craig/OneDrive - University of Glasgow/Covid19_work/analysis_data_warehouse_2021_03_26/mod_covid_st5a.RData")
+
+# save(mod.covid.st5a,file="C:/Users/craig/OneDrive - University of Glasgow/Covid19_work/analysis_data_warehouse_2021_03_26/mod_covid_st5a.RData")
+
+summary(mod.covid.st5a)
+
+plot(mod.covid.st5a$summary.fitted.values$mean*E.st,data.covid.st.missing$cases);abline(0,1)
+plot((mod.covid.st5a$summary.fitted.values$mean*E.st)[nrow(mod.covid.st5a$summary.fitted.values)-(63:0)],data.covid.st$cases[nrow(mod.covid.st5a$summary.fitted.values)-(63:0)]);abline(0,1)
+
+pred.mat.st5a<-matrix(mod.covid.st5a$summary.fitted.values$`0.5quant`*E.st,nrow=64,ncol=n.weeks)
+lwrbnd.mat.st5a<-matrix(mod.covid.st5a$summary.fitted.values$`0.025quant`*E.st,nrow=64,ncol=n.weeks)
+uprbnd.mat.st5a<-matrix(mod.covid.st5a$summary.fitted.values$`0.975quant`*E.st,nrow=64,ncol=n.weeks)
+par(mfrow=c(4,4),mar=c(4,4.5,1,0.5))
+for(i in 1:64){
+  plot(data.resp[i,],type="o",xlab="Week",ylab="Cases",main=shp1.simp$DISTNAME[i],xlim=c(1,n.weeks),pch=16,cex=0.5,
+       ylim=c(min(c(data.resp[i,],lwrbnd.mat.st5a[i,])),max(c(data.resp[i,],uprbnd.mat.st5a[i,]))))
+  points(pred.mat.st5a[i,],col=2,type="o",pch=16,cex=0.5)
+  points(lwrbnd.mat.st5a[i,],col=2,type="l")
+  points(uprbnd.mat.st5a[i,],col=2,type="l")
+}
+par(mfrow=c(1,1),mar=c(4,4.5,1,0.5))
+
+#
+
+# mod.covid.st5b<-inla(cases~1+f(ID.district,model="bym",graph=Bang.adj,scale.model = TRUE,
+#                               hyper=list(prec.unstruct=list(prior="loggamma",param=c(1,0.001)),
+#                                          prec.spatial=list(prior="loggamma",param=c(1,0.001))
+#                               )
+# )+f(ID.year,model="rw1")
+# +f(ID.year1,model="iid")
+# +f(ID.district.int,model="iid",group=ID.year.int,control.group = list(model="rw1")),
+# family = "poisson",data=data.covid.st.missing,control.compute = list(dic=TRUE,waic=TRUE),
+# control.predictor=list(compute=TRUE,link=1)
+# )
+
+load("C:/Users/craig/OneDrive - University of Glasgow/Covid19_work/analysis_data_warehouse_2021_03_26/mod_covid_st5b.RData")
+
+# save(mod.covid.st5b,file="C:/Users/craig/OneDrive - University of Glasgow/Covid19_work/analysis_data_warehouse_2021_03_26/mod_covid_st5b.RData")
+
+summary(mod.covid.st5b)
+
+plot(mod.covid.st5b$summary.fitted.values$mean,data.covid.st.missing$cases);abline(0,1)
+plot((mod.covid.st5b$summary.fitted.values$mean)[nrow(mod.covid.st5b$summary.fitted.values)-(63:0)],data.covid.st$cases[nrow(mod.covid.st5b$summary.fitted.values)-(63:0)]);abline(0,1)
+
+pred.mat.st5b<-matrix(mod.covid.st5b$summary.fitted.values$`0.5quant`,nrow=64,ncol=n.weeks)
+lwrbnd.mat.st5b<-matrix(mod.covid.st5b$summary.fitted.values$`0.025quant`,nrow=64,ncol=n.weeks)
+uprbnd.mat.st5b<-matrix(mod.covid.st5b$summary.fitted.values$`0.975quant`,nrow=64,ncol=n.weeks)
+par(mfrow=c(4,4),mar=c(4,4.5,1,0.5))
+for(i in 1:64){
+  plot(data.resp[i,],type="o",xlab="Week",ylab="Cases",main=shp1.simp$DISTNAME[i],xlim=c(1,n.weeks),pch=16,cex=0.5,
+       ylim=c(min(c(data.resp[i,],lwrbnd.mat.st5b[i,])),max(c(data.resp[i,],uprbnd.mat.st5b[i,]))))
+  points(pred.mat.st5b[i,],col=2,type="o",pch=16,cex=0.5)
+  points(lwrbnd.mat.st5b[i,],col=2,type="l")
+  points(uprbnd.mat.st5b[i,],col=2,type="l")
+}
+par(mfrow=c(1,1),mar=c(4,4.5,1,0.5))
+
+#
+
+# mod.covid.st6a<-inla(cases~1+f(ID.district,model="bym",graph=Bang.adj,scale.model = TRUE,
+#                               hyper=list(prec.unstruct=list(prior="loggamma",param=c(1,0.001)),
+#                                          prec.spatial=list(prior="loggamma",param=c(1,0.001))
+#                               )
+# )+f(ID.year,model="rw1")
+# +f(ID.year1,model="iid")
+# +f(ID.year.int,model="iid",group=ID.district.int,control.group = list(model="besag",graph=Bang.adj)),
+# family = "poisson",data=data.covid.st.missing,E=E.st,control.compute = list(dic=TRUE,waic=TRUE),
+# control.predictor=list(compute=TRUE,link=1)
+# )
+
+load("C:/Users/craig/OneDrive - University of Glasgow/Covid19_work/analysis_data_warehouse_2021_03_26/mod_covid_st6a.RData")
+
+# save(mod.covid.st6a,file="C:/Users/craig/OneDrive - University of Glasgow/Covid19_work/analysis_data_warehouse_2021_03_26/mod_covid_st6a.RData")
+
+summary(mod.covid.st6a)
+
+plot(mod.covid.st6a$summary.fitted.values$mean*E.st,data.covid.st.missing$cases);abline(0,1)
+plot((mod.covid.st6a$summary.fitted.values$mean*E.st)[nrow(mod.covid.st6a$summary.fitted.values)-(63:0)],data.covid.st$cases[nrow(mod.covid.st6a$summary.fitted.values)-(63:0)]);abline(0,1)
+
+pred.mat.st6a<-matrix(mod.covid.st6a$summary.fitted.values$`0.5quant`*E.st,nrow=64,ncol=n.weeks)
+lwrbnd.mat.st6a<-matrix(mod.covid.st6a$summary.fitted.values$`0.025quant`*E.st,nrow=64,ncol=n.weeks)
+uprbnd.mat.st6a<-matrix(mod.covid.st6a$summary.fitted.values$`0.975quant`*E.st,nrow=64,ncol=n.weeks)
+par(mfrow=c(4,4),mar=c(4,4.5,1,0.5))
+for(i in 1:64){
+  plot(data.resp[i,],type="o",xlab="Week",ylab="Cases",main=shp1.simp$DISTNAME[i],xlim=c(1,n.weeks),pch=16,cex=0.5,
+       ylim=c(min(c(data.resp[i,],lwrbnd.mat.st6a[i,])),max(c(data.resp[i,],uprbnd.mat.st6a[i,]))))
+  points(pred.mat.st6a[i,],col=2,type="o",pch=16,cex=0.5)
+  points(lwrbnd.mat.st6a[i,],col=2,type="l")
+  points(uprbnd.mat.st6a[i,],col=2,type="l")
+}
+par(mfrow=c(1,1),mar=c(4,4.5,1,0.5))
+
+#
+
+# mod.covid.st7a<-inla(cases~1+f(ID.district,model="bym",graph=Bang.adj,scale.model = TRUE,
+#                               hyper=list(prec.unstruct=list(prior="loggamma",param=c(1,0.001)),
+#                                          prec.spatial=list(prior="loggamma",param=c(1,0.001))
+#                               )
+# )+f(ID.year,model="rw1")
+# +f(ID.year1,model="iid")
+# +f(ID.district.int,model="besag",graph=Bang.adj,group=ID.year.int,control.group = list(model="rw1")),
+# family = "poisson",data=data.covid.st.missing,E=E.st,control.compute = list(dic=TRUE,waic=TRUE),
+# control.predictor=list(compute=TRUE,link=1)
+# )
+
+load("C:/Users/craig/OneDrive - University of Glasgow/Covid19_work/analysis_data_warehouse_2021_03_26/mod_covid_st7a.RData")
+
+# save(mod.covid.st7a,file="C:/Users/craig/OneDrive - University of Glasgow/Covid19_work/analysis_data_warehouse_2021_03_26/mod_covid_st7a.RData")
+
+summary(mod.covid.st7a)
+
+plot(mod.covid.st7a$summary.fitted.values$mean*E.st,data.covid.st.missing$cases);abline(0,1)
+plot((mod.covid.st7a$summary.fitted.values$mean*E.st)[nrow(mod.covid.st7a$summary.fitted.values)-(63:0)],data.covid.st$cases[nrow(mod.covid.st7a$summary.fitted.values)-(63:0)]);abline(0,1)
+
+pred.mat.st7a<-matrix(mod.covid.st7a$summary.fitted.values$`0.5quant`*E.st,nrow=64,ncol=n.weeks)
+lwrbnd.mat.st7a<-matrix(mod.covid.st7a$summary.fitted.values$`0.025quant`*E.st,nrow=64,ncol=n.weeks)
+uprbnd.mat.st7a<-matrix(mod.covid.st7a$summary.fitted.values$`0.975quant`*E.st,nrow=64,ncol=n.weeks)
+par(mfrow=c(4,4),mar=c(4,4.5,1,0.5))
+for(i in 1:64){
+  plot(data.resp[i,],type="o",xlab="Week",ylab="Cases",main=shp1.simp$DISTNAME[i],xlim=c(1,n.weeks),pch=16,cex=0.5,
+       ylim=c(min(c(data.resp[i,],lwrbnd.mat.st7a[i,])),max(c(data.resp[i,],uprbnd.mat.st7a[i,]))))
+  points(pred.mat.st7a[i,],col=2,type="o",pch=16,cex=0.5)
+  points(lwrbnd.mat.st7a[i,],col=2,type="l")
+  points(uprbnd.mat.st7a[i,],col=2,type="l")
+}
+par(mfrow=c(1,1),mar=c(4,4.5,1,0.5))
+
+## One-step ahead model comparison: ####
+
+rmse<-function(obs,exp){
+  out<-sqrt(mean((obs-exp)^2))
+  return(out)
+}
+
+rmse.st1a<-rmse(data.resp[,ncol(data.resp)],pred.mat.st1a[,ncol(data.resp)])
+rmse.st4a<-rmse(data.resp[,ncol(data.resp)],pred.mat.st4a[,ncol(data.resp)])
+rmse.st4b<-rmse(data.resp[,ncol(data.resp)],pred.mat.st4b[,ncol(data.resp)])
+rmse.st5a<-rmse(data.resp[,ncol(data.resp)],pred.mat.st5a[,ncol(data.resp)])
+rmse.st5b<-rmse(data.resp[,ncol(data.resp)],pred.mat.st5b[,ncol(data.resp)])
+rmse.st6a<-rmse(data.resp[,ncol(data.resp)],pred.mat.st6a[,ncol(data.resp)])
+rmse.st7a<-rmse(data.resp[,ncol(data.resp)],pred.mat.st7a[,ncol(data.resp)])
+
+mean.int.width.st1a<-mean(uprbnd.mat.st1a[,ncol(data.resp)]-lwrbnd.mat.st1a[,ncol(data.resp)])
+mean.int.width.st4a<-mean(uprbnd.mat.st4a[,ncol(data.resp)]-lwrbnd.mat.st4a[,ncol(data.resp)])
+mean.int.width.st4b<-mean(uprbnd.mat.st4b[,ncol(data.resp)]-lwrbnd.mat.st4b[,ncol(data.resp)])
+mean.int.width.st5a<-mean(uprbnd.mat.st5a[,ncol(data.resp)]-lwrbnd.mat.st5a[,ncol(data.resp)])
+mean.int.width.st5b<-mean(uprbnd.mat.st5b[,ncol(data.resp)]-lwrbnd.mat.st5b[,ncol(data.resp)])
+mean.int.width.st6a<-mean(uprbnd.mat.st6a[,ncol(data.resp)]-lwrbnd.mat.st6a[,ncol(data.resp)])
+mean.int.width.st7a<-mean(uprbnd.mat.st7a[,ncol(data.resp)]-lwrbnd.mat.st7a[,ncol(data.resp)])
+
+mean.int.cov.st1a<-mean(uprbnd.mat.st1a[,ncol(data.resp)]>data.resp[,ncol(data.resp)]&data.resp[,ncol(data.resp)]>lwrbnd.mat.st1a[,ncol(data.resp)])
+mean.int.cov.st4a<-mean(uprbnd.mat.st4a[,ncol(data.resp)]>data.resp[,ncol(data.resp)]&data.resp[,ncol(data.resp)]>lwrbnd.mat.st4a[,ncol(data.resp)])
+mean.int.cov.st4b<-mean(uprbnd.mat.st4b[,ncol(data.resp)]>data.resp[,ncol(data.resp)]&data.resp[,ncol(data.resp)]>lwrbnd.mat.st4b[,ncol(data.resp)])
+mean.int.cov.st5a<-mean(uprbnd.mat.st5a[,ncol(data.resp)]>data.resp[,ncol(data.resp)]&data.resp[,ncol(data.resp)]>lwrbnd.mat.st5a[,ncol(data.resp)])
+mean.int.cov.st5b<-mean(uprbnd.mat.st5b[,ncol(data.resp)]>data.resp[,ncol(data.resp)]&data.resp[,ncol(data.resp)]>lwrbnd.mat.st5b[,ncol(data.resp)])
+mean.int.cov.st6a<-mean(uprbnd.mat.st6a[,ncol(data.resp)]>data.resp[,ncol(data.resp)]&data.resp[,ncol(data.resp)]>lwrbnd.mat.st6a[,ncol(data.resp)])
+mean.int.cov.st7a<-mean(uprbnd.mat.st7a[,ncol(data.resp)]>data.resp[,ncol(data.resp)]&data.resp[,ncol(data.resp)]>lwrbnd.mat.st7a[,ncol(data.resp)])
+
+library(xtable)
+xtable(cbind.data.frame(rmse=c(rmse.st1a,rmse.st4a,rmse.st5a,rmse.st6a,rmse.st7a),
+                        mean.int.width=c(mean.int.width.st1a,mean.int.width.st4a,mean.int.width.st5a,mean.int.width.st6a,mean.int.width.st7a),
+                        mean.int.cov=c(mean.int.cov.st1a,mean.int.cov.st4a,mean.int.cov.st5a,mean.int.cov.st6a,mean.int.cov.st7a)))
+
+# Predictions as lines:
+
+par(mfrow=c(1,1))
+plot(1:64,type="n",xlab="District",ylab="Weekly cases",ylim=c(min(pred.mat.st5a[,ncol(data.resp)]),max(pred.mat.st5a[,ncol(data.resp)])),bty="n")
+for(i in 1:64){
+  lines(x=c(i,i),y=c(lwrbnd.mat.st5a[i,ncol(data.resp)],uprbnd.mat.st5a[i,ncol(data.resp)]),col=2)
+  points(x=i,y=pred.mat.st5a[i,ncol(data.resp)],pch=16,col=2)
+  if(lwrbnd.mat.st5a[i,ncol(data.resp)]<=data.resp[i,ncol(data.resp)]&data.resp[i,ncol(data.resp)]<=uprbnd.mat.st5a[i,ncol(data.resp)]){
+    points(x=i,y=data.resp[i,ncol(data.resp)])
+  }else{
+    points(x=i,y=data.resp[i,ncol(data.resp)],pch=15)
+  }
+}
+legend("topright",legend = c("95% CIs","Prediction","Data value within 95% CI","Data value outwith 95% CI"),pch=c(NA,16,1,15),lty=c(1,NA,NA,NA),col=c(2,2,1,1),bty="n")
+
+# spatial plots:
+
+plot.shp<-function(shp.name,data.name,colour.ramp=rev(heat.colors(100)),cuts=NULL,legend=TRUE,...){
+  n.regions<-nrow(coordinates(shp.name))
+  colours.temp<-numeric(n.regions)
+  if(is.null(cuts)){
+    seq.endpts.temp<-seq(from=min(data.name),to=max(data.name),length.out=length(colour.ramp))
+  }else{
+    seq.endpts.temp<-cuts
+  }
+  for(i in 1:n.regions){
+    colours.temp[i]<-colour.ramp[which.min(!(data.name[i]<=seq.endpts.temp))]
+  }
+  plot(shp.name,col=colours.temp,...)
+  axis(side=1)
+  axis(side=2)
+  if(legend){
+    if(is.null(cuts)){
+      image.plot(matrix(data.name),legend.only = TRUE,col=colour.ramp)
+    }else{
+      image.plot(matrix(cuts),legend.only = TRUE,col=colour.ramp)
+    }
+  }
+}
+
+# Different scales for median, 95% lwrbnd, 95% uprbnd
+plot.shp(shp1.simp,pred.mat.st5a[,ncol(data.resp)],border="grey",xlab="Longitude (degrees East)",ylab="Latitude (degrees North)",main="Predictions (median) for most recent week")
+plot.shp(shp1.simp,lwrbnd.mat.st5a[,ncol(data.resp)],border="grey",xlab="Longitude (degrees East)",ylab="Latitude (degrees North)",main="95% CI lower bound for most recent week")
+plot.shp(shp1.simp,uprbnd.mat.st5a[,ncol(data.resp)],border="grey",xlab="Longitude (degrees East)",ylab="Latitude (degrees North)",main="95% CI upper bound for most recent week")
+
+# Same scales for median, 95% lwrbnd, 95% uprbnd
+cuts<-seq(from=min(c(pred.mat.st5a[,ncol(data.resp)],lwrbnd.mat.st5a[,ncol(data.resp)],uprbnd.mat.st5a[,ncol(data.resp)])),to=max(c(pred.mat.st5a[,ncol(data.resp)],lwrbnd.mat.st5a[,ncol(data.resp)],uprbnd.mat.st5a[,ncol(data.resp)])),length.out=100)
+plot.shp(shp1.simp,pred.mat.st5a[,ncol(data.resp)],border="grey",xlab="Longitude (degrees East)",ylab="Latitude (degrees North)",main="Predictions (median) for most recent week",cuts=cuts)
+plot.shp(shp1.simp,lwrbnd.mat.st5a[,ncol(data.resp)],border="grey",xlab="Longitude (degrees East)",ylab="Latitude (degrees North)",main="95% CI lower bound for most recent week",cuts=cuts)
+plot.shp(shp1.simp,uprbnd.mat.st5a[,ncol(data.resp)],border="grey",xlab="Longitude (degrees East)",ylab="Latitude (degrees North)",main="95% CI upper bound for most recent week",cuts=cuts)
+
+#### Predictions for other timepoints using the "best" model: ####
+
+# 10 weeks from the start: ####
+
+data.covid.st.10weeks<-data.covid.st[1:(10*64),]
+data.covid.st.10weeks.missing<-data.covid.st.10weeks;data.covid.st.10weeks.missing$cases[nrow(data.covid.st.10weeks.missing)-(63:0)]<-NA
+E.st.10weeks<-E.st[1:(10*64)]
+n.weeks.10weeks<-10
+
+# mod.covid.st5a.10weeks<-inla(cases~1+f(ID.district,model="bym",graph=Bang.adj,scale.model = TRUE,
+#                               hyper=list(prec.unstruct=list(prior="loggamma",param=c(1,0.001)),
+#                                          prec.spatial=list(prior="loggamma",param=c(1,0.001))
+#                               )
+# )+f(ID.year,model="rw1")
+# +f(ID.year1,model="iid")
+# +f(ID.district.int,model="iid",group=ID.year.int,control.group = list(model="rw1")),
+# family = "poisson",data=data.covid.st.10weeks.missing,E=E.st.10weeks,control.compute = list(dic=TRUE,waic=TRUE),
+# control.predictor=list(compute=TRUE,link=1)
+# )
+
+load("C:/Users/craig/OneDrive - University of Glasgow/Covid19_work/analysis_data_warehouse_2021_03_26/mod_covid_st5a_10weeks.RData")
+
+# save(mod.covid.st5a.10weeks,file="C:/Users/craig/OneDrive - University of Glasgow/Covid19_work/analysis_data_warehouse_2021_03_26/mod_covid_st5a_10weeks.RData")
+
+summary(mod.covid.st5a.10weeks)
+
+plot(mod.covid.st5a.10weeks$summary.fitted.values$mean*E.st.10weeks,data.covid.st.10weeks.missing$cases);abline(0,1)
+plot((mod.covid.st5a.10weeks$summary.fitted.values$mean*E.st.10weeks)[nrow(mod.covid.st5a.10weeks$summary.fitted.values)-(63:0)],data.covid.st.10weeks$cases[nrow(mod.covid.st5a.10weeks$summary.fitted.values)-(63:0)]);abline(0,1)
+
+pred.mat.st5a.10weeks<-matrix(mod.covid.st5a.10weeks$summary.fitted.values$`0.5quant`*E.st.10weeks,nrow=64,ncol=n.weeks.10weeks)
+lwrbnd.mat.st5a.10weeks<-matrix(mod.covid.st5a.10weeks$summary.fitted.values$`0.025quant`*E.st.10weeks,nrow=64,ncol=n.weeks.10weeks)
+uprbnd.mat.st5a.10weeks<-matrix(mod.covid.st5a.10weeks$summary.fitted.values$`0.975quant`*E.st.10weeks,nrow=64,ncol=n.weeks.10weeks)
+par(mfrow=c(4,4),mar=c(4,4.5,1,0.5))
+for(i in 1:64){
+  plot(data.resp[i,],type="o",xlab="Week",ylab="Cases",main=shp1.simp$DISTNAME[i],xlim=c(1,n.weeks.10weeks),pch=16,cex=0.5,
+       ylim=c(min(c(data.resp[i,],lwrbnd.mat.st5a.10weeks[i,])),max(c(data.resp[i,],uprbnd.mat.st5a.10weeks[i,]))))
+  points(pred.mat.st5a.10weeks[i,],col=2,type="o",pch=16,cex=0.5)
+  points(lwrbnd.mat.st5a.10weeks[i,],col=2,type="l")
+  points(uprbnd.mat.st5a.10weeks[i,],col=2,type="l")
+}
+par(mfrow=c(1,1),mar=c(4,4.5,1,0.5))
+
+rmse.st5a.10weeks<-rmse(data.resp[,n.weeks.10weeks],pred.mat.st5a.10weeks[,n.weeks.10weeks])
+mean.int.width.st5a.10weeks<-mean(uprbnd.mat.st5a.10weeks[,n.weeks.10weeks]-lwrbnd.mat.st5a.10weeks[,n.weeks.10weeks])
+mean.int.cov.st5a.10weeks<-mean(uprbnd.mat.st5a.10weeks[,n.weeks.10weeks]>data.resp[,n.weeks.10weeks]&data.resp[,n.weeks.10weeks]>lwrbnd.mat.st5a.10weeks[,n.weeks.10weeks])
+
+# 20 weeks from the start: ####
+
+data.covid.st.20weeks<-data.covid.st[1:(20*64),]
+data.covid.st.20weeks.missing<-data.covid.st.20weeks;data.covid.st.20weeks.missing$cases[nrow(data.covid.st.20weeks.missing)-(63:0)]<-NA
+E.st.20weeks<-E.st[1:(20*64)]
+n.weeks.20weeks<-20
+
+# mod.covid.st5a.20weeks<-inla(cases~1+f(ID.district,model="bym",graph=Bang.adj,scale.model = TRUE,
+#                               hyper=list(prec.unstruct=list(prior="loggamma",param=c(1,0.001)),
+#                                          prec.spatial=list(prior="loggamma",param=c(1,0.001))
+#                               )
+# )+f(ID.year,model="rw1")
+# +f(ID.year1,model="iid")
+# +f(ID.district.int,model="iid",group=ID.year.int,control.group = list(model="rw1")),
+# family = "poisson",data=data.covid.st.20weeks.missing,E=E.st.20weeks,control.compute = list(dic=TRUE,waic=TRUE),
+# control.predictor=list(compute=TRUE,link=1)
+# )
+
+load("C:/Users/craig/OneDrive - University of Glasgow/Covid19_work/analysis_data_warehouse_2021_03_26/mod_covid_st5a_20weeks.RData")
+
+# save(mod.covid.st5a.20weeks,file="C:/Users/craig/OneDrive - University of Glasgow/Covid19_work/analysis_data_warehouse_2021_03_26/mod_covid_st5a_20weeks.RData")
+
+summary(mod.covid.st5a.20weeks)
+
+plot(mod.covid.st5a.20weeks$summary.fitted.values$mean*E.st.20weeks,data.covid.st.20weeks.missing$cases);abline(0,1)
+plot((mod.covid.st5a.20weeks$summary.fitted.values$mean*E.st.20weeks)[nrow(mod.covid.st5a.20weeks$summary.fitted.values)-(63:0)],data.covid.st.20weeks$cases[nrow(mod.covid.st5a.20weeks$summary.fitted.values)-(63:0)]);abline(0,1)
+
+pred.mat.st5a.20weeks<-matrix(mod.covid.st5a.20weeks$summary.fitted.values$`0.5quant`*E.st.20weeks,nrow=64,ncol=n.weeks.20weeks)
+lwrbnd.mat.st5a.20weeks<-matrix(mod.covid.st5a.20weeks$summary.fitted.values$`0.025quant`*E.st.20weeks,nrow=64,ncol=n.weeks.20weeks)
+uprbnd.mat.st5a.20weeks<-matrix(mod.covid.st5a.20weeks$summary.fitted.values$`0.975quant`*E.st.20weeks,nrow=64,ncol=n.weeks.20weeks)
+par(mfrow=c(4,4),mar=c(4,4.5,1,0.5))
+for(i in 1:64){
+  plot(data.resp[i,],type="o",xlab="Week",ylab="Cases",main=shp1.simp$DISTNAME[i],xlim=c(1,n.weeks.20weeks),pch=16,cex=0.5,
+       ylim=c(min(c(data.resp[i,],lwrbnd.mat.st5a.20weeks[i,])),max(c(data.resp[i,],uprbnd.mat.st5a.20weeks[i,]))))
+  points(pred.mat.st5a.20weeks[i,],col=2,type="o",pch=16,cex=0.5)
+  points(lwrbnd.mat.st5a.20weeks[i,],col=2,type="l")
+  points(uprbnd.mat.st5a.20weeks[i,],col=2,type="l")
+}
+par(mfrow=c(1,1),mar=c(4,4.5,1,0.5))
+
+rmse.st5a.20weeks<-rmse(data.resp[,n.weeks.20weeks],pred.mat.st5a.20weeks[,n.weeks.20weeks])
+mean.int.width.st5a.20weeks<-mean(uprbnd.mat.st5a.20weeks[,n.weeks.20weeks]-lwrbnd.mat.st5a.20weeks[,n.weeks.20weeks])
+mean.int.cov.st5a.20weeks<-mean(uprbnd.mat.st5a.20weeks[,n.weeks.20weeks]>data.resp[,n.weeks.20weeks]&data.resp[,n.weeks.20weeks]>lwrbnd.mat.st5a.20weeks[,n.weeks.20weeks])
+
+#### Compare results for all numbers of weeks from 5 to n.weeks:
+
+seq.weeks.all<-5:n.weeks
+n.weeks.all<-length(seq.weeks.all)
+data.covid.st.allweeks<-vector("list",n.weeks.all)
+data.covid.st.allweeks.missing<-vector("list",n.weeks.all)
+E.st.allweeks<-vector("list",n.weeks.all)
+# mod.covid.st5a.allweeks<-vector("list",n.weeks.all)
+# pred.mat.st5a.allweeks<-vector("list",n.weeks.all)
+# lwrbnd.mat.st5a.allweeks<-vector("list",n.weeks.all)
+# uprbnd.mat.st5a.allweeks<-vector("list",n.weeks.all)
+# rmse.st5a.allweeks<-numeric(n.weeks.all)
+# mean.int.width.st5a.allweeks<-numeric(n.weeks.all)
+# mean.int.cov.st5a.allweeks<-numeric(n.weeks.all)
+for(i in 1:n.weeks.all){
+  data.covid.st.allweeks[[i]]<-data.covid.st[1:(seq.weeks.all[i]*64),]
+  data.covid.st.allweeks.missing[[i]]<-data.covid.st.allweeks[[i]];data.covid.st.allweeks.missing[[i]]$cases[nrow(data.covid.st.allweeks.missing[[i]])-(63:0)]<-NA
+  E.st.allweeks[[i]]<-E.st[1:(seq.weeks.all[i]*64)]
+  # mod.covid.st5a.allweeks[[i]]<-inla(cases~1+f(ID.district,model="bym",graph=Bang.adj,scale.model = TRUE,
+  #                                              hyper=list(prec.unstruct=list(prior="loggamma",param=c(1,0.001)),
+  #                                                         prec.spatial=list(prior="loggamma",param=c(1,0.001))
+  #                                              )
+  # )+f(ID.year,model="rw1")
+  # +f(ID.year1,model="iid")
+  # +f(ID.district.int,model="iid",group=ID.year.int,control.group = list(model="rw1")),
+  # family = "poisson",data=data.covid.st.allweeks.missing[[i]],E=E.st.allweeks[[i]],control.compute = list(dic=TRUE,waic=TRUE),
+  # control.predictor=list(compute=TRUE,link=1)
+  # )
+  # 
+  # pred.mat.st5a.allweeks[[i]]<-matrix(mod.covid.st5a.allweeks[[i]]$summary.fitted.values$`0.5quant`*E.st.allweeks[[i]],nrow=64,ncol=seq.weeks.all[i])
+  # lwrbnd.mat.st5a.allweeks[[i]]<-matrix(mod.covid.st5a.allweeks[[i]]$summary.fitted.values$`0.025quant`*E.st.allweeks[[i]],nrow=64,ncol=seq.weeks.all[i])
+  # uprbnd.mat.st5a.allweeks[[i]]<-matrix(mod.covid.st5a.allweeks[[i]]$summary.fitted.values$`0.975quant`*E.st.allweeks[[i]],nrow=64,ncol=seq.weeks.all[i])
+  # 
+  # rmse.st5a.allweeks[[i]]<-rmse(data.resp[,seq.weeks.all[i]],pred.mat.st5a.allweeks[[i]][,seq.weeks.all[i]])
+  # mean.int.width.st5a.allweeks[[i]]<-mean(uprbnd.mat.st5a.allweeks[[i]][,seq.weeks.all[i]]-lwrbnd.mat.st5a.allweeks[[i]][,seq.weeks.all[i]])
+  # mean.int.cov.st5a.allweeks[[i]]<-mean(uprbnd.mat.st5a.allweeks[[i]][,seq.weeks.all[i]]>data.resp[,seq.weeks.all[i]]&data.resp[,seq.weeks.all[i]]>lwrbnd.mat.st5a.allweeks[[i]][,seq.weeks.all[i]])
+  # 
+  print(paste0(i," of ",n.weeks.all))
+}
+
+# save(mod.covid.st5a.allweeks,file="C:/Users/craig/OneDrive - University of Glasgow/Covid19_work/analysis_data_warehouse_2021_03_26/mod_covid_st5a_allweeks.RData")
+# save(pred.mat.st5a.allweeks,file="C:/Users/craig/OneDrive - University of Glasgow/Covid19_work/analysis_data_warehouse_2021_03_26/pred_mat_st5a_allweeks.RData")
+# save(lwrbnd.mat.st5a.allweeks,file="C:/Users/craig/OneDrive - University of Glasgow/Covid19_work/analysis_data_warehouse_2021_03_26/lwrbnd_mat_st5a_allweeks.RData")
+# save(uprbnd.mat.st5a.allweeks,file="C:/Users/craig/OneDrive - University of Glasgow/Covid19_work/analysis_data_warehouse_2021_03_26/uprbnd_mat_st5a_allweeks.RData")
+# save(rmse.st5a.allweeks,file="C:/Users/craig/OneDrive - University of Glasgow/Covid19_work/analysis_data_warehouse_2021_03_26/rmse_st5a_allweeks.RData")
+# save(mean.int.width.st5a.allweeks,file="C:/Users/craig/OneDrive - University of Glasgow/Covid19_work/analysis_data_warehouse_2021_03_26/mean_int_width_st5a_allweeks.RData")
+# save(mean.int.cov.st5a.allweeks,file="C:/Users/craig/OneDrive - University of Glasgow/Covid19_work/analysis_data_warehouse_2021_03_26/mean_int_cov_st5a_allweeks.RData")
+
+load(file="C:/Users/craig/OneDrive - University of Glasgow/Covid19_work/analysis_data_warehouse_2021_03_26/mod_covid_st5a_allweeks.RData")
+load(file="C:/Users/craig/OneDrive - University of Glasgow/Covid19_work/analysis_data_warehouse_2021_03_26/pred_mat_st5a_allweeks.RData")
+load(file="C:/Users/craig/OneDrive - University of Glasgow/Covid19_work/analysis_data_warehouse_2021_03_26/lwrbnd_mat_st5a_allweeks.RData")
+load(file="C:/Users/craig/OneDrive - University of Glasgow/Covid19_work/analysis_data_warehouse_2021_03_26/uprbnd_mat_st5a_allweeks.RData")
+load(file="C:/Users/craig/OneDrive - University of Glasgow/Covid19_work/analysis_data_warehouse_2021_03_26/rmse_st5a_allweeks.RData")
+load(file="C:/Users/craig/OneDrive - University of Glasgow/Covid19_work/analysis_data_warehouse_2021_03_26/mean_int_width_st5a_allweeks.RData")
+load(file="C:/Users/craig/OneDrive - University of Glasgow/Covid19_work/analysis_data_warehouse_2021_03_26/mean_int_cov_st5a_allweeks.RData")
+
+seq.weeks.all.minus1<-seq.weeks.all-1
+par(mfrow=c(2,2))
+plot(rmse.st5a.allweeks~seq.weeks.all.minus1,xlab="Number of weeks of data used",ylab="RMSE",type="o",pch=16)
+plot(mean.int.width.st5a.allweeks~seq.weeks.all.minus1,xlab="Number of weeks of data used",ylab="Mean 95% CI width",type="o",pch=16)
+plot(mean.int.cov.st5a.allweeks~seq.weeks.all.minus1,xlab="Number of weeks of data used",ylab="Mean 95% CI coverage",type="o",pch=16);abline(h=0.95,col="grey",lty=2)
+par(mfrow=c(1,1))
+
+
+
+
+
+
+
+
+

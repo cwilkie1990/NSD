@@ -1,0 +1,194 @@
+#################################################################
+# Script for doing OKFD for Canadian temperature data set. First
+# we detrending the data by using a functional regression analysis.
+# We use a functional response (temperatute) and two covarites 
+# (coordinatest) and a constant.
+#################################################################
+
+rm(list=ls())
+library(fda)
+library(geoR)
+source("okfd.R")
+source("okfd.cv.R")
+
+#################################################################
+# Reading data
+#################################################################
+
+# Distance among sampling sites
+  coord <-matrix(scan("Coordenadas.txt",0, dec="."), 35, 2, byrow=TRUE)
+  dista <- dist(coord, method="euclidean", diag=TRUE, upper=TRUE)
+  d <- as.matrix(dista)
+
+# Distancia de los sitios observados al sitio de predicci?n
+
+  dista.cero<-read.table("coordcero.txt", header=FALSE) 
+  d.cero <- as.matrix(dista.cero)
+
+# Data set 
+
+  temp <- matrix(scan("dailtemp.txt",0, dec=","), 365, 35,byrow=TRUE)
+  day  <- matrix(scan("day.txt",0), 365, 35, byrow=TRUE)
+
+ place <- c(
+"Arvida     ", "Bagottville", "Calgary    ", "Charlottvl ", "Churchill  ", "Dawson     ",
+"Edmonton   ", "Fredericton", "Halifax    ", "Inuvik     ", "Iqaluit    ", "Kamloops   ",
+"London     ", "Montreal   ", "Ottawa     ", "Pr. Albert ", "Pr. George ", "Pr. Rupert ",
+"Quebec     ", "Regina     ", "Resolute   ", "Scheffervll", "Sherbrooke ", "St. Johns  ",
+"Sydney     ", "The Pas    ", "Thunderbay ", "Toronto    ", "Uranium Cty", "Vancouver  ",
+"Victoria   ", "Whitehorse ", "Winnipeg   ", "Yarmouth   ", "Yellowknife")
+dimnames(temp) <- list(NULL,place)
+
+
+
+daytime   <- (1:365)
+dayrange  <- c(0,365)
+dayperiod <- 365
+nbasis     <- 65
+daybasis65 <- create.fourier.basis(dayrange, nbasis, dayperiod)
+
+# daytempfd <- data2fd(temp, daytime, daybasis65, argnames=list("Day", "Station", "Temperature (degrees C)"))
+daytempfd <- Data2fd(daytime, temp, daybasis65)
+plotfit.fd(temp, daytime, daytempfd)
+
+
+#####################################################################
+# Model 1: Constant and two independent (scalar) mvariables
+######################################################################
+
+# set up independent variables
+
+constantfd <- fd(matrix(1,1,35), create.constant.basis(c(0, 365)))
+xfdlist <- vector("list",3)
+xfdlist[[1]] <- constantfd
+xfdlist[[2]] <- coord[,1]
+xfdlist[[3]] <- coord[,2]
+
+#  set up the functional parameter object for (the regression fns.
+
+betalist   <- vector("list",3)
+
+#betabasis1 <- create.constant.basis(c(1, 365))
+#betafd1    <- fd(0, betabasis1)
+#betafdPar1 <- fdPar(betafd1)
+#betalist[[1]] <- betafdPar1
+
+
+nbetabasis  <- 65
+betabasis1  <- create.fourier.basis(c(0, 365), nbetabasis)
+betafd1     <- fd(matrix(0,nbetabasis,1), betabasis1)
+lambda      <- 0
+betafdPar1  <- fdPar(betafd1,Lfdobj=int2Lfd(0), lambda)
+betalist[[1]] <- betafdPar1
+
+nbetabasis  <- 65
+betabasis2  <- create.fourier.basis(c(0, 365), nbetabasis)
+betafd2     <- fd(matrix(0,nbetabasis,1), betabasis2)
+lambda      <- 0
+betafdPar2  <- fdPar(betafd2,Lfdobj=int2Lfd(0), lambda)
+betalist[[2]] <- betafdPar2
+
+
+nbetabasis  <- 65
+betabasis3  <- create.fourier.basis(c(0, 365), nbetabasis)
+betafd3     <- fd(matrix(0,nbetabasis,1), betabasis3)
+lambda      <- 0
+betafdPar3  <- fdPar(betafd3,Lfdobj=int2Lfd(0), lambda)
+betalist[[3]] <- betafdPar3
+
+
+regression<-fRegress(daytempfd, xfdlist ,betalist)
+
+betas <- regression$betaestlist
+par(mfrow=c(1,3))
+for (j in 1:3) {
+	betaestParfdj <- betas[[j]]
+	plot(betaestParfdj$fd, xlab="Day", ylab="Estimated Parameter")
+}
+
+
+plot(betas[[1]]$fd, xlab="Day", ylab="Constant")
+plot(betas[[2]]$fd, xlab="Day", ylab="Beta1")
+plot(betas[[3]]$fd, xlab="Day", ylab="Beta2")
+
+
+names(regression$yhatfdobj)
+par(mfrow=c(1,2))
+plot(daytempfd)
+plot(regression$yhatfdobj$fd)
+
+yhatmat    <- eval.fd(day, regression$yhatfdobj$fd)
+ymat       <- eval.fd(day, daytempfd)
+tempres <- ymat[,1:35] - yhatmat[,1:35]
+matplot(day,tempres, xlab="Day", ylab="Residual", type="l")
+dimnames(tempres) <- list(NULL,place)
+summary(tempres)
+
+
+###########################################################################
+# OKFD prediction of a residual curve on an unvisted site
+###########################################################################
+
+coord.cero <- matrix(c(-114.581, 55.73),nrow=1,ncol=2)
+n<-dim(temp)[1]
+nbasis<-65
+argvals<-seq(1,n, by=1)
+
+okfd.res<-okfd(coord=coord,data=tempres,argvals=argvals,nbasis=nbasis,
+               new.coord=coord.cero)
+
+plot(okfd.res$datafd,lty=1,col=8, xlab="Day", ylab="Residuals (degrees C)")
+lines(okfd.res$krig.new.data,col=1,lwd=2)
+
+
+
+###########################################################################
+# OKFD prediction of a temperature curve on an unvisted site.
+# Here we sum the trend plus the residual prediction of 
+###########################################################################
+
+prediction.residual<-okfd.res$krig.new.data
+plot(day[,1], prediction.residual)
+temptrend<-betas[[1]][1]$fd-114.581*betas[[2]][1]$fd+55.73*betas[[3]][1]$fd
+plot(temptrend)
+# temptrend<-eval.fd(day,temptrend)
+temptrend<-eval.fd(day[,1],temptrend)
+prediction.temp<-temptrend+prediction.residual
+plot(daytempfd, xlab="Day", ylab="Temperature (degrees C)", col=8, lty=1)
+lines(prediction.temp, lty=1, lwd=2)
+
+
+###########################################################################
+# Cross-validation of OKFD for Canadian temperature data set
+###########################################################################
+
+n<-dim(temp)[1]
+nbasis<-65
+argvals<-seq(1,n, by=1)
+
+array.nbasis <- seq(65,65,by=10)
+okfd.cv.res <- okfd.cv(coord=coord, data=tempres, argvals=argvals, 
+                       array.nbasis=array.nbasis, 
+                       max.dist.variogram=NULL,nugget.fix=NULL)
+
+
+names(okfd.cv.res)
+write.table(okfd.cv.res$MSE.CV, file="MSE.CV.txt", row.names=FALSE,quote=FALSE,append=TRUE)
+MSE.CV<-matrix(scan("MSE.CV.txt"), 365, 1, byrow=TRUE)
+
+##########################################################################
+# Results an figures of cross-validation
+##########################################################################
+
+names(okfd.cv.res)
+okfd.cv.res$k.opt
+resultsMSE.CV<-cbind(array.nbasis,okfd.cv.res$MSE.CV)
+
+plot(array.nbasis,okfd.cv.res$MSE.CV,type="l",xlab="Number of basis functions", ylab="MSE of cross-validation")
+matplot(okfd.cv.res$krig.CV[1,,],type="l",col=1, lty=1,ylim=c(-30,20), ylab="Temperature (Degress C)",xlab="Day")
+abline(h=0, lty=2)
+
+residuales65<-okfd.cv.res$krig.CV[1,,]-temp
+SSE.estaciones<-apply(residuales65*residuales65,2,sum)
+as.matrix(SSE.estaciones)
+summary(SSE.estaciones)

@@ -1,0 +1,322 @@
+\name{run.NSDmodel}
+\alias{run.NSDmodel}
+%- Also NEED an '\alias' for EACH other topic documented here.
+\title{
+Nonparametric statistical downscaling modelling
+}
+\description{
+This function carries out nonparametric statistical downscaling for the given inputs, resulting in simulated values from the posterior distributions of each parameter and of the resulting predictions.
+}
+\usage{
+run.NSDmodel(nIter, nBurnIn, nChains, nThin, yData, xData, xPred, coordsData,
+             coordsPred, By, Bx, ByPred, phiAlpha, phiBeta, aAlpha, bAlpha,
+             aBeta, bBeta, aY, bY, aC, bC, aX, bX, muD, SigmaD, 
+             sigmaAlphaPrecInit, sigmaBetaPrecInit, sigmaYPrecInit, 
+             sigmaCPrecInit, alphaInit, betaInit, cInit, sigmaXPrecInit, dInit)
+}
+%- maybe also 'usage' for other objects documented here.
+\arguments{
+  \item{nIter}{
+Integer: the number of iterations for which to run the MCMC computations.
+}
+  \item{nBurnIn}{
+Integer: the number of iterations to discard at the beginning of the MCMC computations.
+}
+  \item{nChains}{
+Integer: the number of chains for which to run the MCMC computations.
+}
+  \item{nThin}{
+Integer: the number of iterations to thin by (i.e. every (\code{nThin})th value is saved).
+}
+  \item{yData}{
+List of response data (i.e. of \emph{in situ} data), of length equal to the number of \emph{in situ} locations, \eqn{n}. Each component of the list is a vector of the \emph{in situ} data at that location, of length \eqn{q_i}.
+}
+  \item{xData}{
+Matrix of remotely-sensed data for the grid cells containing the \emph{in situ} locations, of dimension \eqn{p} times by \eqn{n} locations.
+}
+  \item{xPred}{
+Matrix of remotely-sensed data for the grid cells containing the prediction locations, of dimension \eqn{\tilde{p}} times by \eqn{\tilde{n}} locations.
+}
+  \item{coordsData}{
+Matrix of coordinates of the \emph{in situ} data locations, of dimension \eqn{n} by 2
+}
+  \item{coordsPred}{
+Matrix of coordinates of the prediction locations, of dimension \eqn{\tilde{n}} by 2
+}
+  \item{By}{
+List of length equal to \eqn{n}, containing the matrices of evaluated basis functions for each \emph{in situ} data location. Each matrix should be of dimension \eqn{q_i} by \eqn{m}, where \eqn{q_i} is the number of data for each \emph{in situ} location \eqn{i} and \eqn{m} is the basis dimension. The matrix can be made up of the output of the function \code{eval.basis} from the \code{R} package \code{fda}.
+}
+  \item{Bx}{
+Matrix of the basis functions, evaluated at the \eqn{p} times of the remote sensing data. The dimension should be \eqn{p} by \eqn{m}, where \eqn{m} is the basis dimension. This can be the output of the function \code{eval.basis} from the \code{R} package \code{fda}.
+}
+  \item{ByPred}{
+Matrix of the basis functions, evaluated at the \eqn{\tilde{q}} times of prediction. The dimension should be \eqn{\tilde{q}} by \eqn{m}, where \eqn{m} is the basis dimension. This can be the output of the function \code{eval.basis} from the \code{R} package \code{fda}.
+}
+  \item{phiAlpha}{
+Numeric: the value of the spatial decay parameter \eqn{\phi_{\alpha}}
+}
+  \item{phiBeta}{
+Numeric: the value of the spatial decay parameter \eqn{\phi_{\beta}}
+}
+  \item{aAlpha}{
+Numeric: the value of the shape parameter \eqn{a_\alpha}.
+}
+  \item{bAlpha}{
+Numeric: the value of the rate parameter \eqn{b_\alpha}.
+}
+  \item{aBeta}{
+Numeric: the value of the shape parameter \eqn{a_\beta}.
+}
+  \item{bBeta}{
+Numeric: the value of the rate parameter \eqn{b_\beta}.
+}
+  \item{aY}{
+Numeric: the value of the shape parameter \eqn{a_Y}.
+}
+  \item{bY}{
+Numeric: the value of the rate parameter \eqn{b_Y}.
+}
+  \item{aC}{
+Numeric: the value of the shape parameter \eqn{a_c}.
+}
+  \item{bC}{
+Numeric: the value of the rate parameter \eqn{b_c}.
+}
+  \item{aX}{
+Numeric: the value of the shape parameter \eqn{a_x}.
+}
+  \item{bX}{
+Numeric: the value of the rate parameter \eqn{b_x}.
+}
+  \item{muD}{
+Numeric vector: the mean vector \eqn{\boldsymbol{\mu}_d}, of length \eqn{m}.
+}
+  \item{SigmaD}{
+Matrix: the covariance matrix \eqn{\boldsymbol{\Sigma}_d}, of dimension \eqn{m} by \eqn{m}.
+}
+  \item{sigmaAlphaPrecInit}{
+Numeric: the initial value of \eqn{(\sigma_{\alpha}^2)^{-1}}.
+}
+  \item{sigmaBetaPrecInit}{
+Numeric: the initial value of \eqn{(\sigma_{\beta}^2)^{-1}}.
+}
+  \item{sigmaYPrecInit}{
+Numeric: the initial value of \eqn{(\sigma_{y}^2)^{-1}}.
+}
+  \item{sigmaCPrecInit}{
+Numeric: the initial value of \eqn{(\sigma_{c}^2)^{-1}}.
+}
+  \item{alphaInit}{
+Matrix: the initial value of \eqn{\boldsymbol{\alpha}}.
+}
+  \item{betaInit}{
+Matrix: the initial value of \eqn{\boldsymbol{\beta}}.
+}
+  \item{cInit}{
+Matrix: the initial value of \eqn{\textbf{c}}.
+}
+  \item{sigmaXPrecInit}{
+Numeric: the initial value of \eqn{(\sigma_{x}^2)^{-1}}.
+}
+  \item{dInit}{
+Matrix: the initial value of \eqn{\textbf{d}}.
+}
+}
+\details{
+%%  ~~ If necessary, more details than the description above ~~
+}
+\value{
+Returns an \code{mcmc.list} object of length \code{nChains}. Each component is an \code{mcmc} object containing the posterior simulations for each parameter in the model (including predictions).
+%%  ~Describe the value returned
+%%  If it is a LIST, use
+%%  \item{comp1 }{Description of 'comp1'}
+%%  \item{comp2 }{Description of 'comp2'}
+%% ...
+}
+\references{
+%% ~put references to the literature/web site here ~
+}
+\author{
+Craig Wilkie
+}
+\note{
+%%  ~~further notes~~
+}
+
+%% ~Make other sections like Warning with \section{Warning }{....} ~
+
+\seealso{
+%% ~~objects to See Also as \code{\link{help}}, ~~~
+}
+\examples{
+## Predictions over time for location P1 (see Wilkie et al. (2018)):
+if(require("fda")){
+  data(ISdata)
+  data(RSdata)
+  data(coords.IS)
+  data(coords.RS)
+  data(coords.outline)
+  data(which.closest)
+  data(which.closest.RS)
+  data(months.balaton)
+  
+  IS.avail <- matrix.to.list(ISdata)
+  times.avail <- times.to.list(ISdata, months.balaton)
+  
+  # Create Fourier basis of dimension 9, with period 1 year:
+  Fourier.9.basis <- create.fourier.basis(as.numeric(min(months.balaton),
+    max(months.balaton)), nbasis = 9, period = 365)
+  plot(Fourier.9.basis)
+  
+  # Evaluate this basis at the times of in-situ data collection, times of remote 
+  # sensing data collection and prediction times (if different):
+  eb.IS <- vector("list", ncol(ISdata))
+  for(i in 1:ncol(ISdata)){
+    eb.IS[[i]] <- eval.basis(times.avail[[i]], Fourier.9.basis)
+  }
+  eb.RS <- eval.basis(months.balaton, Fourier.9.basis)
+  # Create 250-length sequence of prediction times:
+  et.pred <- seq(min(months.balaton), max(months.balaton), length.out = 250)
+  eb.pred <- eval.basis(et.pred, Fourier.9.basis)
+  
+  # Let's predict at a sequence of 250 times at prediction location P1 (see
+  # Wilkie et al. 2018):
+  p.RS.1 <- 425
+  pred.P1 <- run.NSDmodel(1000, 10, 2, 2, IS.avail, RSdata[, which.closest],
+    RSdata[, c(p.RS.1-1, p.RS.1)], coords.IS, coords.RS[c(p.RS.1, p.RS.1+1), ], 
+    eb.IS, eb.RS, eb.pred, 0.1, 0.1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, rep(0, 9), 
+    100*diag(9), 1.1, 1.2, 1.3, 1.4, matrix(0, nrow = 9, ncol = ncol(ISdata)), 
+    matrix(0.9, nrow = 9, ncol = ncol(ISdata)), matrix(0.5, nrow = 9, 
+    ncol = ncol(ISdata)), 1.5, matrix(0.6, nrow = 9, ncol = ncol(ISdata)))
+  
+  summary.P1 <- summary(pred.P1)
+  
+  # Get the predictions and 95\% credible interval bounds from the summary:
+  pred.mat.P1 <- cbind.data.frame(summary.P1$quantiles[nrow(summary.P1$quantiles)
+    - c(249:0), c(1, 3, 5)])
+  
+  # Plot the estimates for P1 and the 95\% credible intervals:
+  plot(pred.mat.P1[,2] ~ et.pred, type = "l", ylim = c(min(pred.mat.P1), 
+    max(pred.mat.P1)), xlab = "Year", ylab = "Log(chlorophyll-a)")
+  lines(pred.mat.P1[,1] ~ et.pred, lty = 2)
+  lines(pred.mat.P1[,3] ~ et.pred, lty = 2)
+}
+
+\dontrun{## Predictions across the lake, for the middle of each month:
+## NOTE: This is very slow to run! ##
+if(require("fda")&require("sp")){
+  data(ISdata)
+  data(RSdata)
+  data(coords.IS)
+  data(coords.RS)
+  data(coords.outline)
+  data(which.closest)
+  data(which.closest.RS)
+  data(months.balaton)
+  
+  IS.avail<-matrix.to.list(ISdata)
+  times.avail<-times.to.list(ISdata,months.balaton)
+  
+  # Create Fourier basis of dimension 9, with period 1 year:
+  Fourier.9.basis <- create.fourier.basis(as.numeric(min(months.balaton),
+    max(months.balaton)), nbasis = 9, period = 365)
+  plot(Fourier.9.basis)
+  
+  # Evaluate this basis at the times of in-situ data collection, times of remote 
+  # sensing data collection and prediction times (if different):
+  eb.IS <- vector("list", ncol(ISdata))
+  for(i in 1:ncol(ISdata)){
+    eb.IS[[i]] <- eval.basis(times.avail[[i]], Fourier.9.basis)
+  }
+  eb.RS <- eval.basis(months.balaton, Fourier.9.basis)
+  eb.pred <- eb.RS # i.e. predictions to be made at all 115 months in the dataset.
+  
+  # Let's predict at 997 locations as chosen by a constrained Delaunay triangulation
+  # (see Wilkie et al. 2018):
+  pred.months.balaton <- run.NSDmodel(1000, 10, 2, 2, IS.avail,
+    RSdata[, which.closest], RSdata[, which.closest.RS], coords.IS, 
+    coords.RS[which.closest.RS, ], eb.IS, eb.RS, eb.pred, 0.1, 0.1, 2, 1, 2, 1, 2, 1,
+    2, 1, 2, 1, rep(0, 9), 100 * diag(9), 1.1, 1.2, 1.3, 1.4, 
+    matrix(0,nrow = 9, ncol = ncol(ISdata)), 
+    matrix(0.9, nrow = 9, ncol = ncol(ISdata)), 
+    matrix(0.5, nrow = 9, ncol = ncol(ISdata)), 1.5, 
+    matrix(0.6, nrow = 9, ncol = ncol(ISdata)))
+  
+  summary.months.balaton <- summary(pred.months.balaton)
+  
+  # Get the predictions and 95\% credible interval bounds from the summary and
+  # put them into 3 separate matrices:
+  pred.mat.all.months.balaton <- matrix(summary.months.balaton$quantiles
+    [nrow(summary.months.balaton$quantiles) - ((115 * 997 - 1):0), 3], nrow = 115, 
+    ncol = 997)
+  lwrbnd.mat.all.months.balaton <- matrix(summary.months.balaton$quantiles
+    [nrow(summary.months.balaton$quantiles) - ((115 * 997 - 1):0), 1], nrow = 115, 
+    ncol = 997)
+  uprbnd.mat.all.months.balaton <- matrix(summary.months.balaton$quantiles
+    [nrow(summary.months.balaton$quantiles) - ((115 * 997 - 1):0), 5], nrow = 115, 
+    ncol = 997)
+  
+  # Create a SpatialPointsDataFrame for the predictions, lower and upper 
+  # 95\% credible interval bounds (using package "sp"):
+  pred.mat.all.months.balaton.sp <- cbind.data.frame(coords.RS[which.closest.RS, ], 
+    t(pred.mat.all.months.balaton))
+  colnames(pred.mat.all.months.balaton.sp) <- c("lon", "lat", paste0("x.", 
+    1:length(months.balaton)))
+  sp::coordinates(pred.mat.all.months.balaton.sp) <- c("lon","lat")
+  
+  lwrbnd.mat.all.months.balaton.sp <- cbind.data.frame(coords.RS[which.closest.RS, ], 
+    t(lwrbnd.mat.all.months.balaton))
+  colnames(lwrbnd.mat.all.months.balaton.sp) <- c("lon", "lat",paste0("x.", 
+    1:length(months.balaton)))
+  sp::coordinates(lwrbnd.mat.all.months.balaton.sp) <- c("lon", "lat")
+  
+  uprbnd.mat.all.months.balaton.sp <- cbind.data.frame(coords.RS[which.closest.RS, ], 
+    t(uprbnd.mat.all.months.balaton))
+  colnames(uprbnd.mat.all.months.balaton.sp) <- c("lon", "lat", paste0("x.", 
+    1:length(months.balaton)))
+  sp::coordinates(uprbnd.mat.all.months.balaton.sp) <- c("lon", "lat")
+  
+  # Plot the predictions for a few months (arranged in same figure):
+  sp1 <- sp::spplot(pred.mat.all.months.balaton.sp, "x.1", 
+    col.regions = rev(heat.colors(100)), colorkey = TRUE, main = "15th June 2002",
+    scales = list(draw = TRUE), xlab = "Longitude (degrees East)", 
+    ylab = "Latitude (degrees North)")
+  sp2 <- sp::spplot(pred.mat.all.months.balaton.sp, "x.2", 
+    col.regions = rev(heat.colors(100)), colorkey = TRUE, main = "15th July 2002",
+    scales = list(draw = TRUE), xlab = "Longitude (degrees East)", 
+    ylab = "Latitude (degrees North)")
+  sp3 <- sp::spplot(pred.mat.all.months.balaton.sp, "x.3", 
+    col.regions = rev(heat.colors(100)), colorkey = TRUE, main = "14th August 2002",
+    scales = list(draw = TRUE), xlab = "Longitude (degrees East)",
+    ylab = "Latitude (degrees North)")
+  
+  plot(sp1, position = c(0, 0.66, 1, 0.99), more = TRUE)
+  plot(sp2, position = c(0, 0.33, 1, 0.66), more = TRUE)
+  plot(sp3, position = c(0, 0, 1, 0.33), more = FALSE)
+
+  # Plot the predictions for 15th June 2002, along with lower and upper 
+  # 95\% credible interval bounds (on same scale):
+  cuts <- seq(min(lwrbnd.mat.all.months.balaton.sp@data$"x.1"), 
+    max(uprbnd.mat.all.months.balaton.sp@data$"x.1"), length.out = 100)
+  sp1a <- sp::spplot(pred.mat.all.months.balaton.sp, "x.1", 
+    col.regions = rev(heat.colors(100)), colorkey = TRUE, main = "Predictions",
+    scales = list(draw = TRUE), xlab = "Longitude (degrees East)", 
+    ylab = "Latitude (degrees North)", cuts = cuts)
+  sp4 <- sp::spplot(lwrbnd.mat.all.months.balaton.sp, "x.1", 
+    col.regions = rev(heat.colors(100)), colorkey = TRUE, main = "Lower 95 CI bound",
+    scales = list(draw = TRUE), xlab = "Longitude (degrees East)", 
+    ylab = "Latitude (degrees North)", cuts = cuts)
+  sp5 <- sp::spplot(uprbnd.mat.all.months.balaton.sp, "x.1", 
+    col.regions = rev(heat.colors(100)), colorkey = TRUE, main = "Upper 95 CI bound",
+    scales = list(draw = TRUE), xlab = "Longitude (degrees East)", 
+    ylab = "Latitude (degrees North)", cuts = cuts)  
+  plot(sp4, position = c(0, 0.66, 1, 0.99), more = TRUE)
+  plot(sp1a, position = c(0, 0.33, 1, 0.66), more = TRUE)
+  plot(sp5, position = c(0, 0, 1, 0.33), more = FALSE)
+}}
+
+}
+% Add one or more standard keywords, see file 'KEYWORDS' in the
+% R documentation directory.
+\keyword{ programming }% use one of  RShowDoc("KEYWORDS")
+\keyword{ IO }% __ONLY ONE__ keyword per line

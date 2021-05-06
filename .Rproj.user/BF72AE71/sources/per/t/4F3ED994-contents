@@ -1,0 +1,203 @@
+ukfd<-function(coord,data,datares, argvals, nbasis, new.coord=NULL,
+               max.dist.variogram=NULL,nugget.fix=NULL,basis.type="fourier",range=NULL,period=NULL)
+{
+require(fda)
+require(geoR)
+
+n <-  dim(data)[1]
+s <-  dim(data)[2] 
+
+###############################################################
+# Making a fd object by using a Fourier basis para residuales
+################################################################
+
+if(is.null(range)){
+   range  <- c(1,n)
+   period <- n
+}
+if(basis.type=="fourier"){
+   basis <- create.fourier.basis(range, nbasis, period)
+}else{
+   if(basis.type=="bspline"){
+      basis <- create.bspline.basis(range, nbasis)
+   }else{
+      stop("basis.type must be one of 'fourier' or 'bspline'")
+   }
+}
+datafd <- Data2fd(argvals,datares,basis)
+
+# range  <- c(1,n)
+# period <- n
+# basis <- create.fourier.basis(range, nbasis, period)
+# datafd <- Data2fd(argvals,datares,basis)
+
+###############################################################
+# Making a fd object by using a Fourier basis para originales
+###############################################################
+
+if(is.null(range)){
+   range  <- c(1,n)
+   period <- n
+}
+if(basis.type=="fourier"){
+   basis <- create.fourier.basis(range, nbasis, period)
+}else{
+   if(basis.type=="bspline"){
+      basis <- create.bspline.basis(range, nbasis)
+   }else{
+      stop("basis.type must be one of 'fourier' or 'bspline'")
+   }
+}
+datafdori <- Data2fd(argvals,data,basis)
+
+# range  <- c(1,n)
+# period <- n
+# basis <- create.fourier.basis(range, nbasis, period)
+# datafdori <- Data2fd(argvals,data,basis)
+
+########################################################
+# L2 norm among smoothed functions
+########################################################
+
+L2norm<-matrix(0,nrow=s,ncol=s)
+coef<-datafd$coef
+if(basis.type=="fourier"){
+   M<-fourierpen(basis,Lfdobj=0)
+}else{
+   if(basis.type=="bspline"){
+      M<-bsplinepen(basis,Lfdobj = 0)
+   }else{
+      stop("basis.type must be one of 'fourier' or 'bspline'")
+   }
+}
+# M<-fourierpen(basis,Lfdobj=0)
+for (i in 1:(s-1))
+     {
+      coef.i<-coef[,i]
+      for (j in (i+1):s)
+           {
+            coef.j<-coef[,j]
+            L2norm[i,j]<-t(coef.i-coef.j)%*%M%*%(coef.i-coef.j)
+            L2norm[j,i]<-L2norm[i,j]
+           }
+      }
+############################################################
+# Euclidian distance among sites
+############################################################
+
+Eu.d <-as.matrix(dist(coord,method="euclidian"))
+
+############################################################
+# Empirical trace-variogram
+############################################################
+
+emp.trace.vari<-variog(coords=coord, data=apply(data,2,sum),option="cloud",message=FALSE)
+emp.trace.vari$v<-array(as.dist(L2norm))
+
+#############################################################
+# fitting a theorethical model 
+#############################################################
+
+sigma2.0<-quantile(emp.trace.vari$v,0.75)
+phi.0<-quantile(Eu.d,.75)
+if(is.null(nugget.fix)){
+    fix.nugget<-FALSE
+    nugget<-0
+   }else{
+    fix.nugget=TRUE
+    nugget<-nugget.fix
+    }
+if (is.null(max.dist.variogram))
+max.dist.variogram<-max(emp.trace.vari$u)   
+trace.vari<-variofit(emp.trace.vari,ini.cov.pars=c(sigma2.0,phi.0),
+                     max.dist=max.dist.variogram,fix.nugget=fix.nugget,
+                     nugget=nugget,cov.model="spherical",message=FALSE)
+plot(emp.trace.vari)
+lines(trace.vari)
+
+#######################################################################
+# Distance matrix among sampling sites and among sampling sites and
+# prediction site
+########################################################################
+   
+   new.s <-    dim(new.coord)[1]
+   new.Eu.d <- as.matrix(dist(rbind(coord,new.coord), method="euclidean"))
+   new.Eu.d <- matrix(new.Eu.d[1:s,(s+1):(s+new.s)],nrow=s,ncol=new.s)
+
+
+#######################################################################
+# Left matrix in equation (4) from paper "ordinary kriging for 
+# function-valued spatial data"
+#######################################################################
+   
+   sigma2 <- trace.vari$cov.pars[1]
+   leftmatrix <- sigma2 - cov.spatial(Eu.d,cov.model=trace.vari$cov.model,cov.pars=trace.vari$cov.pars,kappa=trace.vari$kappa)
+   unosfila <- rep(1,s)
+   rowx=c(coord[,1])
+   rowy=c(coord[,2])
+   leftmatrix <- rbind(leftmatrix,unosfila)
+   leftmatrix <-rbind(leftmatrix, rowx)
+   leftmatrix <-rbind(leftmatrix, rowy)
+   unosycerocolumna <- c(rep(1,s),0,0,0)
+   colx=c(coord[,1],0,0,0)
+   coly=c(coord[,2],0,0,0)
+   leftmatrix <- cbind(leftmatrix,unosycerocolumna, colx,coly)
+   
+
+#######################################################################
+# Right matrix in equation (4) from paper "ordinary kriging for 
+# function-valued spatial data"
+#######################################################################
+
+   rightmatrix <- sigma2 - cov.spatial(new.Eu.d,cov.model=trace.vari$cov.model,cov.pars=trace.vari$cov.pars,kappa=trace.vari$kappa)
+   unosfila <- rep(1,new.s)
+   rowxright=new.coord[,1]
+   rowyright=new.coord[,2]
+   rightmatrix <- rbind(rightmatrix,unosfila)
+   rightmatrix <- rbind(rightmatrix,rowxright)
+   rightmatrix <- rbind(rightmatrix,rowyright)
+   lambdas <- solve(leftmatrix,rightmatrix)
+   lambdas.sinlagrange <- matrix(lambdas[1:s,],nrow=s,ncol=new.s)
+   sum(lambdas.sinlagrange)
+
+#######################################################################
+# Solution and prediction plot
+#######################################################################
+   
+   eval.data <- eval.fd(argvals,datafdori)
+   krig.new.data <- eval.data%*%lambdas.sinlagrange
+   #matplot(argvals, eval.data, lty=1, col=8, type="l")
+   #matlines(argvals, krig.new.data, type="l", lty=1, lwd=2)
+
+
+#######################################################################
+# Prediction variance
+#######################################################################
+
+  vect.semiv <-rightmatrix[1:s,]
+  varianza <-lambdas.sinlagrange*vect.semiv 
+  suma.varianza<-sum(varianza)     
+  pred.var <- suma.varianza + lambdas[s+1,]+lambdas[s+2,]*new.coord[,1]+lambdas[s+3,]*new.coord[,2]
+
+
+#######################################################################
+# Return:
+#######################################################################
+   return(# arguments
+          list(coord=coord, 
+               data=data, 
+               argvals=argvals, 
+               nbasis=nbasis, 
+               new.coord=new.coord,
+          # results
+               datafd=datafd,
+               datafdori=datafdori,
+               emp.trace.vari=emp.trace.vari,
+               trace.vari=trace.vari,
+               Eu.d=Eu.d, 
+               new.Eu.d=new.Eu.d,  
+               lambdas=lambdas, 
+               krig.new.data=krig.new.data,
+               pred.var=pred.var))
+}
+

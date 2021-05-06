@@ -1,0 +1,151 @@
+########################################################################
+# Code for carrying out prediction by OKFD. We use  the Canadian 
+# Maritimes data set. Stations are located at New Brunswick, 
+# Nova Scotia and Price Edward Island provinces. 
+# Data corresponding to average daily temperatures.The function "okfd.R"   
+# allows to do prediction by OKFD and with the function "okfd.cv", 
+# we can do functional cross-validation. We use a spherical model  
+# for modeling the trace-variogram                 
+########################################################################
+
+rm(list=ls())
+library(fda)
+library(geoR)
+source("okfd.R")
+source("okfd.cv.R")
+
+
+#################################################################
+# Distance among sampling sites
+#################################################################
+ 
+ coord <-matrix(scan("coordata.txt",0, dec="."), 35, 2, byrow=TRUE)
+ dista <- dist(coord, method="euclidean", diag=TRUE, upper=TRUE)
+ d <- as.matrix(dista)
+
+#################################################################
+# Distances to the prediction site
+#################################################################
+
+  dista.cero<-read.table("coordcero.txt", header=FALSE) 
+  d.cero <- as.matrix(dista.cero)
+
+#################################################################
+# Data set 
+#################################################################
+
+  temp <- matrix(scan("dailtemp.txt",0, dec=","), 365, 35,byrow=TRUE)
+  day  <- matrix(scan("day.txt",0), 365, 35, byrow=TRUE)
+
+  matplot(temp, type="l", lty=1,col=1, ylab="Temperature (degrees C)", xlab="Day")
+  abline(h=0,lty=2)
+  
+place <- c(
+"Fredericton     ", "Halifax", "Sydney   ", "Miramichi", "Kentville  ", "Keminkujik",
+"Nappan  ", "Annapolis", "Accadia    ", "Woodstock     ", "Bathurst    ", "Bertrand   ",
+"Buctouche     ", "Sussex   ", "Gagetown     ", "Liverpool ", "Truro ", "Greenwood ",
+"Ingonish     ", "Parrsboro     ", "Pugwash   ", "Shearwater", "Charlottetown ", "Summerside",
+"Alberton     ", "Alma    ", "Aroostook ", "Doakton    ", "Oromocto", "Rexton  ",
+"Saint John   ", "Baddeck ", "Cheticamp   ", "Bridgewater   ", "Middle Musquodoboit")
+dimnames(temp) <- list(NULL,place)
+ 
+###########################################################################
+# Prediction at Moncton
+###########################################################################
+
+coord.cero <- matrix(c(-64.69, 46.10),nrow=1,ncol=2)
+n<-dim(temp)[1]
+nbasis<-65
+argvals<-seq(1,n, by=1)
+okfd.res<-okfd(coord=coord,data=temp,argvals=argvals,nbasis=nbasis,
+               new.coord=coord.cero)
+
+names(okfd.res)
+plot(okfd.res$datafd,lty=1,col=8, xlab="Day", ylab="Temperature (Degres C)")
+lines(okfd.res$krig.new.data,col=1,lwd=2)
+moncton<-matrix(scan("PromediosMoncton.txt",0, dec=","), 365, 1, byrow=TRUE)
+lines(moncton,  type="p", pch=20,cex=0.6)
+legend(0, 20, legend = c("Smoothed", "Prediction", "Real data"),lty = c(1,1,-1), pch=c(-1,-1,20),lwd = c(1,1,1), col=c(8,1,1),pt.cex =0.5)
+
+###############################################
+# Prediction variance
+###############################################
+
+okfd.res$pred.var
+
+###############################################
+# SSE analysis
+###############################################
+
+residual<-moncton-okfd.res$krig.new.data
+residual2<-residual*residual
+summary(residual2)
+sd(residual2)
+sum(residual2)
+
+
+###########################################################################
+# Cross-validation analysis 
+###########################################################################
+
+n<-dim(temp)[1]
+nbasis<-65
+argvals<-seq(1,n, by=1)
+array.nbasis <- seq(65,65,by=10)
+okfd.cv.res <- okfd.cv(coord=coord, data=temp, argvals=argvals, 
+                       array.nbasis=array.nbasis, 
+                       max.dist.variogram=NULL,nugget.fix=NULL)
+
+
+write.table(okfd.cv.res$MSE.CV, file="MSE.CV.txt", row.names=FALSE,quote=FALSE,append=TRUE)
+MSE.CV<-matrix(scan("MSE.CV.txt"), 365, 1, byrow=TRUE)
+
+##########################################################################
+# Results of cross-validation analysis
+##########################################################################
+
+names(okfd.cv.res)
+okfd.cv.res$k.opt
+resultsMSE.CV<-cbind(array.nbasis,okfd.cv.res$MSE.CV)
+
+plot(array.nbasis,okfd.cv.res$MSE.CV,type="l",xlab="Number of basis functions", ylab="MSE of cross-validation")
+matplot(okfd.cv.res$krig.CV[1,,],type="l",col=1, lty=1,ylim=c(-15,20), ylab="Temperature (Degress C)",xlab="Day")
+abline(h=0, lty=2)
+
+residuals<-okfd.cv.res$krig.CV[1,,]-temp
+SSE.stations<-apply(residuals*residuals,2,sum)
+SSE.stations<-as.matrix(SSE.stations)
+SSE.stations
+write.table(SSE.stations,"SSEOKFD65.txt",quote=FALSE)
+summary(SSE.stations)
+sd(SSE.stations)
+sum(SSE.stations)
+
+##########################################################
+# Plot of cross-validation predictions
+##########################################################
+
+
+k <- 65
+n<-dim(temp)[1]
+evalarg<-seq(1,n, by=1)
+range  <- c(1,n)
+period <- n
+nbasis <- k
+basis <- create.fourier.basis(range, nbasis, period)
+# datafd <- data2fd(temp,argvals=evalarg,basis)
+datafd <- Data2fd(argvals=evalarg,temp,basis) # Changed by CW since fda has changed this function defn. since this script was written.
+ajustes<-eval.fd(evalarg,datafd,Lfdobj=0)
+
+
+predcv<-okfd.cv.res$krig.CV[1,,]
+plot(temp[,27], main="Aroostook", type="p",lty=1, ylim=c(-15,20),lwd=1, xlab="Day", ylab="Temperature (degrees C)",cex=.5)
+lines(ajustes[,27], type="l", lty=1, lwd=2, col=1)
+lines(predcv[,27], type="l", lty=1, lwd=1, col=1)
+legend(0, 20, legend = c("Observed", "Smoothed", "Predicted"),lty = c(-1,1,1), pch=c(1,-1,-1),lwd = c(1,2,1), col=c(1,1,1),pt.cex =0.5)
+abline(h=0,lty=2)
+
+residual<-temp[,27]-predcv[,27]
+summary(residual)
+summary(residual*residual)
+plot(residual*residual,type="l", ylim=c(0,20))

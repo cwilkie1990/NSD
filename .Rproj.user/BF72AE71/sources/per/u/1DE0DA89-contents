@@ -1,0 +1,47 @@
+
+# from comparison_all_models_10locs.R:
+
+eb.RS.bspline.list<-vector("list",10)
+for(i in 1:10){eb.RS.bspline.list[[i]]<-eb.RS.bspline[[1]]}
+
+pred.mat.mod.fullNSD.10locs<-vector("list",length(basis.seq))
+lwrbnd.mat.mod.fullNSD.10locs<-vector("list",length(basis.seq))
+uprbnd.mat.mod.fullNSD.10locs<-vector("list",length(basis.seq))
+for(i in 1:1){
+  mod.fullNSD.1<-run.NSDmodelMulti2(nIter=1000,nBurnIn=100,nChains=2,nThin=10,
+                                   yData=IS.avail.10locs[-1],
+                                   xData=matrix.to.list(t(simData_sat_tur_all[which.closest.sat.10locs[-1],-(c(1,2,which((apply(is.na(simData_sat_tur_all),2,any)))))])),
+                                   zData=matrix.to.list(t(simData_drone_tur_all[which.closest.drone.10locs[-1],-(c(1,2,which((apply(is.na(simData_drone_tur_all),2,any)))))])),
+                                   xPred=matrix.to.list(t(simData_sat_tur_all[which.closest.sat.10locs[1],-(c(1,2,which((apply(is.na(simData_sat_tur_all),2,any)))))])),
+                                   zPred=matrix.to.list(t(simData_drone_tur_all[which.closest.drone.10locs[1],-(c(1,2,which((apply(is.na(simData_drone_tur_all),2,any)))))])),
+                                   coordsData=as.matrix(locs.insitu.10locs)[-1,],
+                                   coordsPred=as.matrix(simData_sat_tur_all)[which.closest.sat.10locs[1],1:2],
+                                   By=eb.IS.bspline[[i]][-1],
+                                   Bx=eb.RS.bspline.list,
+                                   Bz=eb.RS.bspline.list,
+                                   ByPred=eb.IS.bspline[[i]][[1]],
+                                   BxPred = list(eb.RS.bspline[[1]]),
+                                   BzPred = list(eb.RS.bspline[[1]]),
+                                   phiAlpha=0.1, phiBeta=0.1, phiGamma = 0.1,
+                                   aAlpha=2, bAlpha=1,
+                                   aBeta=2, bBeta=1,
+                                   aGamma=2,bGamma=2,
+                                   aY=2, bY=1,
+                                   aC=2, bC=1,
+                                   aX=2, bX=1,
+                                   aZ=2,bZ=1,
+                                   muD=rep(0, basis.seq[i]),SigmaD=100*diag(basis.seq[i]),
+                                   muE=rep(0, basis.seq[i]),SigmaE=100*diag(basis.seq[i]),
+                                   sigmaAlphaPrecInit=1.1, sigmaBetaPrecInit=1.2, sigmaGammaPrecInit = 1.25, sigmaYPrecInit=1.10,
+                                   sigmaCPrecInit=1.4,
+                                   alphaInit=matrix(0, nrow = basis.seq[i], ncol = length(IS.avail.10locs)-1),
+                                   betaInit=matrix(0.4, nrow = basis.seq[i], ncol = length(IS.avail.10locs)-1),
+                                   gammaInit=matrix(0.45, nrow = basis.seq[i], ncol = length(IS.avail.10locs)-1),
+                                   cInit=matrix(0.5, nrow = basis.seq[i], ncol = length(IS.avail.10locs)-1),
+                                   sigmaXPrecInit=1.5,
+                                   sigmaZPrecInit=1.55,
+                                   dInit=matrix(0.6, nrow = basis.seq[i], ncol = length(IS.avail.10locs)-1),
+                                   eInit=matrix(0.6, nrow = basis.seq[i], ncol = length(IS.avail.10locs)-1))
+  summary.mod.fullNSD.1<-summary(mod.fullNSD.1)
+}
+

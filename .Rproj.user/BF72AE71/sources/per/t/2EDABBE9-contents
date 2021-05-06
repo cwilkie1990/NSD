@@ -1,0 +1,2031 @@
+
+# Modelling using data from data_simulation_multiple_drone_sites_3.R:
+
+# (Version 2: modelling at sites randomly selected along the river length instead of just within the drone regions.)
+
+library(NSD)
+library(sp)
+library(fda)
+library(lubridate)
+
+load(file="C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/simData_true.RData")
+load(file="C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/simData_droneLocs_sd1.RData")
+load(file="C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/simData_droneLocs_sd2.RData")
+load(file="C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/simData_droneLocs_sd3.RData")
+load(file="C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/simData_sat_sd1.RData")
+load(file="C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/simData_sat_sd2.RData")
+load(file="C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/simData_sat_sd3.RData")
+load(file="C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/simData_insitu_sd1.RData")
+load(file="C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/simData_insitu_sd2.RData")
+load(file="C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/simData_insitu_sd3.RData")
+
+load(file="C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/grid_xy.RData")
+load(file="C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/grid_xy_droneLocs.RData")
+load(file="C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/grid_xy_sat.RData")
+load(file="C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/grid_xy_insitu.RData")
+
+for(i in 1:length(grid.xy.droneLocs)){grid.xy.droneLocs[[i]]<-cbind.data.frame(x=grid.xy.droneLocs[[i]]$x,y=grid.xy.droneLocs[[i]]$y)}
+
+dates.5years<-seq(from=as.Date("2015-01-15"),to=as.Date("2019-12-15"),length.out = 5*12)
+dates.dec.5years<-decimal_date(dates.5years)
+
+# plots of simulated data:
+
+simData.true.sp<-cbind.data.frame(x=grid.xy$x,y=grid.xy$y,simData.true)
+colnames(simData.true.sp)<-c("x","y",paste0("time.",substr(dates.5years,1,4),".",substr(dates.5years,6,7),".",substr(dates.5years,9,10)))
+coordinates(simData.true.sp)<-c("x","y")
+
+simData.droneLocs.sd1.sp<-vector("list",10) # first 12 months only, so can plot.
+simData.droneLocs.sd2.sp<-vector("list",10)
+simData.droneLocs.sd3.sp<-vector("list",10)
+for(i in 1:10){
+  simData.droneLocs.sd1.sp[[i]]<-cbind.data.frame(x=grid.xy.droneLocs[[i]]$x,y=grid.xy.droneLocs[[i]]$y,simData.droneLocs.sd1[[i]][,1:12])
+  simData.droneLocs.sd2.sp[[i]]<-cbind.data.frame(x=grid.xy.droneLocs[[i]]$x,y=grid.xy.droneLocs[[i]]$y,simData.droneLocs.sd2[[i]][,1:12])
+  simData.droneLocs.sd3.sp[[i]]<-cbind.data.frame(x=grid.xy.droneLocs[[i]]$x,y=grid.xy.droneLocs[[i]]$y,simData.droneLocs.sd3[[i]][,1:12])
+  coordinates(simData.droneLocs.sd1.sp[[i]])<-c("x","y")
+  coordinates(simData.droneLocs.sd2.sp[[i]])<-c("x","y")
+  coordinates(simData.droneLocs.sd3.sp[[i]])<-c("x","y")
+}
+
+spplot(simData.droneLocs.sd1.sp[[1]],colorkey=TRUE,pch=15,cex=0.5)
+spplot(simData.droneLocs.sd2.sp[[1]],colorkey=TRUE,pch=15,cex=0.5)
+spplot(simData.droneLocs.sd3.sp[[1]],colorkey=TRUE,pch=15,cex=0.5)
+
+simData.sat.sd1.sp<-cbind.data.frame(x=grid.xy.sat$x,y=grid.xy.sat$y,simData.sat.sd1)
+colnames(simData.sat.sd1.sp)<-c("x","y",paste0("time.",substr(dates.5years,1,4),".",substr(dates.5years,6,7),".",substr(dates.5years,9,10)))
+coordinates(simData.sat.sd1.sp)<-c("x","y")
+
+simData.sat.sd2.sp<-cbind.data.frame(x=grid.xy.sat$x,y=grid.xy.sat$y,simData.sat.sd2)
+colnames(simData.sat.sd2.sp)<-c("x","y",paste0("time.",substr(dates.5years,1,4),".",substr(dates.5years,6,7),".",substr(dates.5years,9,10)))
+coordinates(simData.sat.sd2.sp)<-c("x","y")
+
+simData.sat.sd3.sp<-cbind.data.frame(x=grid.xy.sat$x,y=grid.xy.sat$y,simData.sat.sd3)
+colnames(simData.sat.sd3.sp)<-c("x","y",paste0("time.",substr(dates.5years,1,4),".",substr(dates.5years,6,7),".",substr(dates.5years,9,10)))
+coordinates(simData.sat.sd3.sp)<-c("x","y")
+
+# grid.xy.trend.x.sp<-cbind.data.frame(rep(trend.x,each=length(seq.y))+rep(trend.y,length(seq.x)),grid.xy$x,grid.xy$y)
+# colnames(grid.xy.trend.x.sp)<-c("data","x","y")
+# coordinates(grid.xy.trend.x.sp)<-c("x","y")
+# 
+# endpts.low<-seq(from=1,by=50000,to=625000)
+# endpts.high<-c(seq(from=50000,by=50000,to=625000),625000)
+# grid.xy.trend.x.sp.Ps<-vector("list",length(endpts.low))
+# endpts<-vector("list",length(endpts.low))
+# for(i in 1:length(endpts.low)){
+#   endpts[[i]]<-endpts.low[i]:endpts.high[i]
+#   grid.xy.trend.x.sp.Ps[[i]]<-cbind.data.frame(data=grid.xy.trend.x.sp@data[endpts[[i]],],x=grid.xy.trend.x.sp@coords[endpts[[i]],1],y=grid.xy.trend.x.sp@coords[endpts[[i]],2]);colnames(grid.xy.trend.x.sp.Ps[[i]])<-c("data","x","y");coordinates(grid.xy.trend.x.sp.Ps[[i]])<-c("x","y")
+# }
+# 
+# grid.xy.trend.pips.sp.Ps<-vector("list",length(endpts.low))
+# endpts<-vector("list",length(endpts.low))
+# for(i in 1:length(endpts.low)){
+#   endpts[[i]]<-endpts.low[i]:endpts.high[i]
+#   grid.xy.trend.pips.sp.Ps[[i]]<-cbind.data.frame(data=grid.xy.trend.pips.sp@data[endpts[[i]],],x=grid.xy.trend.pips.sp@coords[endpts[[i]],1],y=grid.xy.trend.pips.sp@coords[endpts[[i]],2]);colnames(grid.xy.trend.pips.sp.Ps[[i]])<-c("data","x","y");coordinates(grid.xy.trend.pips.sp.Ps[[i]])<-c("x","y")
+# }
+# 
+# grid.xy.sat.sp<-cbind.data.frame(x=grid.xy.sat$x,y=grid.xy.sat$y,data=numeric(nrow(grid.xy.sat)))
+# for(i in 1:nrow(grid.xy.sat.sp)){
+#   grid.xy.sat.sp$data[i]<-mean(grid.xy.trend.pips.sp@data$data[coordinates(grid.xy.trend.pips.sp)[,1]>=(grid.xy.sat.sp$x[i]-4)&
+#                                                                  coordinates(grid.xy.trend.pips.sp)[,1]<=(grid.xy.sat.sp$x[i]+4)&
+#                                                                  coordinates(grid.xy.trend.pips.sp)[,2]>=(grid.xy.sat.sp$y[i]-4)&
+#                                                                  coordinates(grid.xy.trend.pips.sp)[,2]<=(grid.xy.sat.sp$y[i]-4)])
+# }
+# coordinates(grid.xy.sat.sp)<-c("x","y")
+# 
+endpts.low.sat<-seq(from=1,by=2000,to=25000)
+endpts.high.sat<-c(seq(from=2000,by=2000,to=25000),25000)
+# grid.xy.sat.sp.Ps<-vector("list",length(endpts.low.sat))
+endpts.sat<-vector("list",length(endpts.low.sat))
+for(i in 1:length(endpts.low.sat)){
+  endpts.sat[[i]]<-endpts.low.sat[i]:endpts.high.sat[i]
+#   grid.xy.sat.sp.Ps[[i]]<-cbind.data.frame(data=grid.xy.sat.sp@data[endpts.sat[[i]],],x=grid.xy.sat.sp@coords[endpts.sat[[i]],1],y=grid.xy.sat.sp@coords[endpts.sat[[i]],2]);colnames(grid.xy.sat.sp.Ps[[i]])<-c("data","x","y");coordinates(grid.xy.sat.sp.Ps[[i]])<-c("x","y")
+}
+
+seq.x<-seq(from=1,to=49999,by=2)
+seq.y<-seq(from=1,to=49,by=2)
+
+endpts.x.low<-seq(from=1,to=48001,by=4000)
+endpts.x.high<-seq(from=4000,to=52000,by=4000)
+
+endpts.x.low.sat<-seq(from=1,to=48001,by=4000)
+endpts.x.high.sat<-seq(from=4000,to=52000,by=4000)
+
+cuts.simData.sat.sd1.sp<-seq(min(simData.sat.sd1),max(simData.sat.sd1),length.out = 100)
+simData.sat.sd1.sp.Ps<-vector("list",length(endpts.low.sat))
+sp.list.simData.sat.sd1.sp.Ps<-vector("list",length(endpts.low.sat))
+for(i in 1:length(endpts.low.sat)){
+  simData.sat.sd1.sp.Ps[[i]]<-cbind.data.frame(simData.sat.sd1.sp@data[endpts.sat[[i]],1:12],x=simData.sat.sd1.sp@coords[endpts.sat[[i]],1],y=simData.sat.sd1.sp@coords[endpts.sat[[i]],2]);coordinates(simData.sat.sd1.sp.Ps[[i]])<-c("x","y")
+  sp.list.simData.sat.sd1.sp.Ps[[i]]<-spplot(simData.sat.sd1.sp.Ps[[i]],colorkey=TRUE,pch=15,cex=0.25,cuts=cuts.simData.sat.sd1.sp,xlim=c(endpts.x.low[i],endpts.x.high[i]),ylim=c(min(seq.y),max(seq.y)),col.regions=rev(bpy.colors(100)))
+} # plotting 1st 12 months for each segment of river.
+
+print(sp.list.simData.sat.sd1.sp.Ps[[1]])
+# save as C:\Users\craig\OneDrive - University of Glasgow\MDrive_partial_March2020\Ramganga\analysis\data_sim_June2020\
+# data_simulation_multiple_drone_sites_3\docfigs_pred1of13sd1.png at 700 by 375 pixels.
+print(sp.list.simData.sat.sd1.sp.Ps[[2]])
+# save as C:\Users\craig\OneDrive - University of Glasgow\MDrive_partial_March2020\Ramganga\analysis\data_sim_June2020\
+# data_simulation_multiple_drone_sites_3\docfigs_pred2of13sd1.png at 700 by 375 pixels.
+print(sp.list.simData.sat.sd1.sp.Ps[[3]])
+# save as C:\Users\craig\OneDrive - University of Glasgow\MDrive_partial_March2020\Ramganga\analysis\data_sim_June2020\
+# data_simulation_multiple_drone_sites_3\docfigs_pred3of13sd1.png at 700 by 375 pixels.
+print(sp.list.simData.sat.sd1.sp.Ps[[4]])
+# save as C:\Users\craig\OneDrive - University of Glasgow\MDrive_partial_March2020\Ramganga\analysis\data_sim_June2020\
+# data_simulation_multiple_drone_sites_3\docfigs_pred4of13sd1.png at 700 by 375 pixels.
+print(sp.list.simData.sat.sd1.sp.Ps[[5]])
+# save as C:\Users\craig\OneDrive - University of Glasgow\MDrive_partial_March2020\Ramganga\analysis\data_sim_June2020\
+# data_simulation_multiple_drone_sites_3\docfigs_pred5of13sd1.png at 700 by 375 pixels.
+print(sp.list.simData.sat.sd1.sp.Ps[[6]])
+# save as C:\Users\craig\OneDrive - University of Glasgow\MDrive_partial_March2020\Ramganga\analysis\data_sim_June2020\
+# data_simulation_multiple_drone_sites_3\docfigs_pred6of13sd1.png at 700 by 375 pixels.
+print(sp.list.simData.sat.sd1.sp.Ps[[7]])
+print(sp.list.simData.sat.sd1.sp.Ps[[8]])
+print(sp.list.simData.sat.sd1.sp.Ps[[9]])
+print(sp.list.simData.sat.sd1.sp.Ps[[10]])
+print(sp.list.simData.sat.sd1.sp.Ps[[11]])
+print(sp.list.simData.sat.sd1.sp.Ps[[12]])
+print(sp.list.simData.sat.sd1.sp.Ps[[13]])
+
+cuts.simData.sat.sd2.sp<-seq(min(simData.sat.sd2),max(simData.sat.sd2),length.out = 100)
+simData.sat.sd2.sp.Ps<-vector("list",length(endpts.low.sat))
+sp.list.simData.sat.sd2.sp.Ps<-vector("list",length(endpts.low.sat))
+for(i in 1:length(endpts.low.sat)){
+  simData.sat.sd2.sp.Ps[[i]]<-cbind.data.frame(simData.sat.sd2.sp@data[endpts.sat[[i]],1:12],x=simData.sat.sd2.sp@coords[endpts.sat[[i]],1],y=simData.sat.sd2.sp@coords[endpts.sat[[i]],2]);coordinates(simData.sat.sd2.sp.Ps[[i]])<-c("x","y")
+  sp.list.simData.sat.sd2.sp.Ps[[i]]<-spplot(simData.sat.sd2.sp.Ps[[i]],colorkey=TRUE,pch=15,cex=0.25,cuts=cuts.simData.sat.sd2.sp,xlim=c(endpts.x.low[i],endpts.x.high[i]),ylim=c(min(seq.y),max(seq.y)),col.regions=rev(bpy.colors(100)))
+} # plotting 1st 12 months for each segment of river.
+
+print(sp.list.simData.sat.sd2.sp.Ps[[1]])
+print(sp.list.simData.sat.sd2.sp.Ps[[2]])
+print(sp.list.simData.sat.sd2.sp.Ps[[3]])
+print(sp.list.simData.sat.sd2.sp.Ps[[4]])
+print(sp.list.simData.sat.sd2.sp.Ps[[5]])
+print(sp.list.simData.sat.sd2.sp.Ps[[6]])
+print(sp.list.simData.sat.sd2.sp.Ps[[7]])
+print(sp.list.simData.sat.sd2.sp.Ps[[8]])
+print(sp.list.simData.sat.sd2.sp.Ps[[9]])
+print(sp.list.simData.sat.sd2.sp.Ps[[10]])
+print(sp.list.simData.sat.sd2.sp.Ps[[11]])
+print(sp.list.simData.sat.sd2.sp.Ps[[12]])
+print(sp.list.simData.sat.sd2.sp.Ps[[13]])
+
+cuts.simData.sat.sd3.sp<-seq(min(simData.sat.sd3),max(simData.sat.sd3),length.out = 100)
+simData.sat.sd3.sp.Ps<-vector("list",length(endpts.low.sat))
+sp.list.simData.sat.sd3.sp.Ps<-vector("list",length(endpts.low.sat))
+for(i in 1:length(endpts.low.sat)){
+  simData.sat.sd3.sp.Ps[[i]]<-cbind.data.frame(simData.sat.sd3.sp@data[endpts.sat[[i]],1:12],x=simData.sat.sd3.sp@coords[endpts.sat[[i]],1],y=simData.sat.sd3.sp@coords[endpts.sat[[i]],2]);coordinates(simData.sat.sd3.sp.Ps[[i]])<-c("x","y")
+  sp.list.simData.sat.sd3.sp.Ps[[i]]<-spplot(simData.sat.sd3.sp.Ps[[i]],colorkey=TRUE,pch=15,cex=0.25,cuts=cuts.simData.sat.sd3.sp,xlim=c(endpts.x.low[i],endpts.x.high[i]),ylim=c(min(seq.y),max(seq.y)),col.regions=rev(bpy.colors(100)))
+} # plotting 1st 12 months for each segment of river.
+
+print(sp.list.simData.sat.sd3.sp.Ps[[1]])
+print(sp.list.simData.sat.sd3.sp.Ps[[2]])
+print(sp.list.simData.sat.sd3.sp.Ps[[3]])
+print(sp.list.simData.sat.sd3.sp.Ps[[4]])
+print(sp.list.simData.sat.sd3.sp.Ps[[5]])
+print(sp.list.simData.sat.sd3.sp.Ps[[6]])
+print(sp.list.simData.sat.sd3.sp.Ps[[7]])
+print(sp.list.simData.sat.sd3.sp.Ps[[8]])
+print(sp.list.simData.sat.sd3.sp.Ps[[9]])
+print(sp.list.simData.sat.sd3.sp.Ps[[10]])
+print(sp.list.simData.sat.sd3.sp.Ps[[11]])
+print(sp.list.simData.sat.sd3.sp.Ps[[12]])
+print(sp.list.simData.sat.sd3.sp.Ps[[13]])
+
+#
+
+dates.droneLocs<-dates.5years[c(6,14,16,23,26,38,51)]
+dates.sat<-dates.5years
+dates.insitu<-dates.5years[c(2,4,6,9,14,16,17,21,23,26,31,35,38,42,51,53,57)]
+
+dates.dec.droneLocs<-decimal_date(dates.droneLocs)
+dates.dec.sat<-decimal_date(dates.sat)
+dates.dec.insitu<-decimal_date(dates.insitu)
+
+# Reduce data to dates available:
+simData2.droneLocs.sd1<-vector("list",length(simData.droneLocs.sd1));for(i in 1:length(simData2.droneLocs.sd1)){simData2.droneLocs.sd1[[i]]<-simData.droneLocs.sd1[[i]][,dates.5years%in%dates.droneLocs]}
+simData2.sat.sd1<-simData.sat.sd1 # monthly anyway.
+simData2.insitu.sd1<-vector("list",length(simData.insitu.sd1));for(i in 1:length(simData2.insitu.sd1)){simData2.insitu.sd1[[i]]<-simData.insitu.sd1[[i]][,dates.5years%in%dates.droneLocs]}
+
+seq.bspline<-5:50
+
+which.closest.drone.insitu<-vector("list",10)
+for(i in 1:10){
+  which.closest.drone.insitu[[i]]<-numeric(10)
+  for(j in 1:10){
+    which.closest.drone.insitu[[i]][j]<-which.min(spDistsN1(as.matrix(grid.xy.droneLocs[[i]]),as.numeric(grid.xy.insitu[[i]][j,])))
+  }
+}
+
+
+
+## Modelling 1: Kriging of function-valued data:
+
+# get optimal basis dimension using just one simulation (LOOCV of insitu data):
+
+source('C:/Users/craig/OneDrive - University of Glasgow/RamgangaData/UKFD_CANADA/ukfd_CW.R')
+
+rmse<-function(obs,pred){
+  return(sqrt(mean((obs-pred)^2)))
+}
+
+# test run:
+
+
+
+
+
+#
+
+constantfd <- fd(matrix(1,1,9), create.constant.basis(c(min(dates.dec.droneLocs),max(dates.dec.droneLocs))))
+xfdlist <- vector("list",10)
+for(i in 1:10){
+  xfdlist[[i]]<-vector("list",3)
+  xfdlist[[i]][[1]] <- constantfd
+  xfdlist[[i]][[2]] <- grid.xy.insitu[[1]][-i,1]
+  xfdlist[[i]][[3]] <- grid.xy.insitu[[1]][-i,2]
+}
+
+time.mat<-matrix(rep(dates.dec.droneLocs,9),nrow=length(dates.dec.droneLocs),ncol=9)
+
+rmse.vec.bspline.ukfd<-numeric(length(seq.bspline))
+for(i in 1:length(seq.bspline)){
+  simDatafd.F.ukfd<-vector("list",10)
+  for(j in 1:10){
+    simDatafd.F.ukfd[[j]]<-Data2fd(dates.dec.droneLocs, t(simData2.insitu.sd1[[1]][-j,]), create.bspline.basis(c(min(dates.dec.droneLocs),max(dates.dec.droneLocs)), seq.bspline[i]))
+  }
+  betalist.F.ukfd<-vector("list",3)
+  for(j in 1:3){
+    betalist.F.ukfd[[j]]<-fdPar(fd(matrix(0,seq.bspline[i],1),create.bspline.basis(c(min(dates.dec.droneLocs),max(dates.dec.droneLocs)),nbasis=seq.bspline[i])),Lfdobj = int2Lfd(0),0)
+  }
+  regression.F.ukfd<-vector("list",10)
+  for(j in 1:10){
+    regression.F.ukfd[[j]]<-fRegress(simDatafd.F.ukfd[[j]], xfdlist[[j]] ,betalist.F.ukfd)
+  }
+  betas.F.ukfd <- vector("list",10)
+  for(j in 1:10){
+    betas.F.ukfd[[j]]<-regression.F.ukfd[[j]]$betaestlist
+  }
+  yhatmat.F.ukfd<-vector("list",10)
+  ymat.F.ukfd<-vector("list",10)
+  res.F.ukfd<-vector("list",10)
+  for(j in 1:10){
+    # yhatmat.F.ukfd[[j]]<-eval.fd(time.mat, regression.F.ukfd[[j]]$yhatfdobj$fd) # change due to unhelpful non-backwards compatible change in latest version of fda.
+    yhatmat.F.ukfd[[j]]<-eval.fd(time.mat, regression.F.ukfd[[j]]$yhatfdobj)
+    ymat.F.ukfd[[j]]<-eval.fd(time.mat, simDatafd.F.ukfd[[j]])
+    res.F.ukfd[[j]]<-ymat.F.ukfd[[j]] - yhatmat.F.ukfd[[j]]
+  }
+  pred.mat.res.F.ukfd<-matrix(nrow=length(dates.dec.droneLocs),ncol=10)
+  pred.mat.res.orig.F.ukfd<-matrix(nrow=length(dates.dec.droneLocs),ncol=10)
+  for(j in 1:10){
+    pred.mat.res.F.ukfd[,j]<-ukfd(grid.xy.insitu[[1]][-j,],t(simData2.insitu.sd1[[1]][-j,]),res.F.ukfd[[j]],dates.dec.droneLocs,seq.bspline[i],grid.xy.insitu[[1]][j,],range = c(min(dates.dec.droneLocs),max(dates.dec.droneLocs)),basis.type = "bspline")$krig.new.data
+    pred.mat.res.orig.F.ukfd[,j]<-pred.mat.res.F.ukfd[,j]
+  }
+  rmse.vec.bspline.ukfd[i]<-rmse(simData2.insitu.sd1[[1]],t(pred.mat.res.orig.F.ukfd))
+  print(seq.bspline[i])
+}
+
+par(mfrow=c(1,1))
+plot(seq.bspline,rmse.vec.bspline.ukfd,type="o",lty=2,pch=16,col="grey")
+seq.bspline[which.min(rmse.vec.bspline.ukfd)] # 9
+
+simDatafd.F.ukfd<-vector("list",10)
+for(j in 1:10){
+  simDatafd.F.ukfd[[j]]<-Data2fd(dates.dec.droneLocs, t(simData2.insitu.sd1[[1]][-j,]), create.bspline.basis(c(min(dates.dec.droneLocs),max(dates.dec.droneLocs)), 9))
+}
+betalist.F.ukfd<-vector("list",3)
+for(j in 1:3){
+  betalist.F.ukfd[[j]]<-fdPar(fd(matrix(0,9,1),create.bspline.basis(c(min(dates.dec.droneLocs),max(dates.dec.droneLocs)),nbasis=9)),Lfdobj = int2Lfd(0),0)
+}
+regression.F.ukfd<-vector("list",10)
+for(j in 1:10){
+  regression.F.ukfd[[j]]<-fRegress(simDatafd.F.ukfd[[j]], xfdlist[[j]] ,betalist.F.ukfd)
+}
+betas.F.ukfd <- vector("list",10)
+for(j in 1:10){
+  betas.F.ukfd[[j]]<-regression.F.ukfd[[j]]$betaestlist
+}
+yhatmat.F.ukfd<-vector("list",10)
+ymat.F.ukfd<-vector("list",10)
+res.F.ukfd<-vector("list",10)
+for(j in 1:10){
+  # yhatmat.F.ukfd[[j]]<-eval.fd(time.mat, regression.F.ukfd[[j]]$yhatfdobj$fd) # change due to unhelpful non-backwards compatible change in latest version of fda.
+  yhatmat.F.ukfd[[j]]<-eval.fd(time.mat, regression.F.ukfd[[j]]$yhatfdobj)
+  ymat.F.ukfd[[j]]<-eval.fd(time.mat, simDatafd.F.ukfd[[j]])
+  res.F.ukfd[[j]]<-ymat.F.ukfd[[j]] - yhatmat.F.ukfd[[j]]
+}
+pred.mat.res.F.ukfd<-matrix(nrow=length(dates.dec.droneLocs),ncol=10)
+pred.mat.res.orig.F.ukfd<-matrix(nrow=length(dates.dec.droneLocs),ncol=10)
+for(j in 1:10){
+  pred.mat.res.F.ukfd[,j]<-ukfd(grid.xy.insitu[[1]][-j,],t(simData2.insitu.sd1[[1]][-j,]),res.F.ukfd[[j]],dates.dec.droneLocs,9,grid.xy.insitu[[1]][j,],range = c(min(dates.dec.droneLocs),max(dates.dec.droneLocs)),basis.type = "bspline")$krig.new.data
+  pred.mat.res.orig.F.ukfd[,j]<-pred.mat.res.F.ukfd[,j]
+}
+
+par(mfrow=c(3,4))
+for(i in 1:10){
+  plot(simData.true[which.closest.drone.insitu[[1]][i],]~dates.dec.5years,type="l",xlim=c(min(dates.dec.droneLocs),max(dates.dec.droneLocs)),ylim=c(min(c(simData.true[which.closest.drone.insitu[[1]],],pred.mat.res.F.ukfd)),max(c(simData.true[which.closest.drone.insitu[[1]],],pred.mat.res.F.ukfd))),xlab="Year",ylab="Value")
+  points(simData2.insitu.sd1[[1]][i,]~dates.dec.droneLocs,type="o",pch=15,col=2)
+  lines(pred.mat.res.F.ukfd[,i]~dates.dec.droneLocs,type="o",pch=16,col="grey")
+}
+# 
+# # Run once and predict at all locations and timepoints:
+# 
+# constantfd <- fd(matrix(1,1,10), create.constant.basis(c(min(dates.dec.droneLocs),max(dates.dec.droneLocs))))
+# xfdlist<-vector("list",3)
+# xfdlist[[1]] <- constantfd
+# xfdlist[[2]] <- locs.insitu[,1]
+# xfdlist[[3]] <- locs.insitu[,2]
+# 
+# time.mat<-matrix(rep(dates.dec.droneLocs,10),nrow=length(dates.dec.droneLocs),ncol=10)
+# 
+# simDatafd.F.ukfd<-Data2fd(dates.dec.droneLocs, t(simData.insitu[[1]]), create.bspline.basis(c(min(dates.dec.droneLocs),max(dates.dec.droneLocs)), 22))
+# 
+# betalist.F.ukfd<-vector("list",3)
+# for(j in 1:3){
+#   betalist.F.ukfd[[j]]<-fdPar(fd(matrix(0,22,1),create.bspline.basis(c(min(dates.dec.droneLocs),max(dates.dec.droneLocs)),nbasis=22)),Lfdobj = int2Lfd(0),0)
+# }
+# regression.F.ukfd<-fRegress(simDatafd.F.ukfd, xfdlist ,betalist.F.ukfd)
+# 
+# betas.F.ukfd<-regression.F.ukfd$betaestlist
+# 
+# # yhatmat.F.ukfd<-eval.fd(time.mat, regression.F.ukfd$yhatfdobj$fd) # change due to unhelpful non-backwards compatible change in latest version of fda.
+# yhatmat.F.ukfd<-eval.fd(time.mat, regression.F.ukfd$yhatfdobj)
+# ymat.F.ukfd<-eval.fd(time.mat, simDatafd.F.ukfd)
+# res.F.ukfd<-ymat.F.ukfd - yhatmat.F.ukfd
+# 
+# shape.xy.2<-shape.xy;colnames(shape.xy.2)<-c("x","y")
+# 
+# pred.mat.res.F.ukfd<-ukfd(locs.insitu,t(simData.insitu[[1]]),res.F.ukfd,dates.dec.droneLocs,22,shape.xy.2,range = c(min(dates.dec.droneLocs),max(dates.dec.droneLocs)),basis.type = "bspline")$krig.new.data
+# pred.mat.res.orig.F.ukfd<-pred.mat.res.F.ukfd
+# 
+# par(mfrow=c(3,4))
+# for(i in 1:10){
+#   plot(simData.true[which.closest.drone.insitu[i],]~dates.dec.true,type="l",xlim=c(min(dates.dec.droneLocs),max(dates.dec.droneLocs)),ylim=c(min(c(simData.true[which.closest.drone.insitu,],pred.mat.res.F.ukfd)),max(c(simData.true[which.closest.drone.insitu,],pred.mat.res.F.ukfd))),xlab="Year",ylab="Value")
+#   lines(pred.mat.res.F.ukfd[,which.closest.drone.insitu[i]]~dates.dec.droneLocs,type="o",pch=16,col="grey")
+# }
+# 
+# pred.mat.res.F.ukfd.sp<-cbind.data.frame(shape.xy.2,t(pred.mat.res.F.ukfd))
+# colnames(pred.mat.res.F.ukfd.sp)<-c("lon","lat",paste0("time.",round(dates.dec.droneLocs,3)))
+# coordinates(pred.mat.res.F.ukfd.sp)<-c("lon","lat")
+# 
+# cuts.2015.038<-seq(from=min(c(pred.mat.res.F.ukfd.sp$time.2015.038,simData.true.sp$time.2015.038)),
+#                    to=max(c(pred.mat.res.F.ukfd.sp$time.2015.038,simData.true.sp$time.2015.038)),
+#                    length.out = 100)
+# p1a<-spplot(pred.mat.res.F.ukfd.sp,"time.2015.038",colorkey=TRUE,pch=15,cuts=cuts.2015.038,main="Predictions")
+# p2a<-spplot(simData.true.sp,"time.2015.038",colorkey=TRUE,pch=15,cuts=cuts.2015.038,main="True data")
+# 
+# plot(p1a,position=c(0,0,1,0.5),more=TRUE)
+# plot(p2a,position=c(0,0.5,1,1))
+
+## NSD, drone only: --------------------------------------------------------------
+
+# For this, set phis = 0.1.
+
+basis.list.bspline<-vector("list",length(seq.bspline))
+for(i in 1:length(basis.list.bspline)){
+  basis.list.bspline[[i]]<-create.bspline.basis(rangeval = c(min(dates.dec.droneLocs),
+                                                             max(dates.dec.droneLocs)),
+                                                nbasis = seq.bspline[i])
+}
+
+times.avail.10locs<-vector("list",10);for(i in 1:10){times.avail.10locs[[i]]<-dates.dec.droneLocs}
+IS.avail.10locs<-vector("list",10);for(i in 1:10){IS.avail.10locs[[i]]<-simData2.insitu.sd1[[1]][i,]}
+
+eb.IS.bspline<-vector("list",length(seq.bspline))
+eb.RS.bspline<-vector("list",length(seq.bspline))
+for(i in 1:length(seq.bspline)){
+  eb.IS.bspline[[i]]<-vector("list",10)
+  for(k in 1:10){
+    eb.IS.bspline[[i]][[k]]<-eval.basis(times.avail.10locs[[k]],basis.list.bspline[[i]])
+  }
+  eb.RS.bspline[[i]]<-eval.basis(dates.dec.droneLocs,basis.list.bspline[[i]])
+}
+
+# pred.mat.mod.NSDdrone.10locs<-vector("list",length(seq.bspline))
+# lwrbnd.mat.mod.NSDdrone.10locs<-vector("list",length(seq.bspline))
+# uprbnd.mat.mod.NSDdrone.10locs<-vector("list",length(seq.bspline))
+# for(i in 1:length(seq.bspline)){
+#   mod.NSDdrone.i<-vector("list",length(IS.avail.10locs))
+#   summary.mod.NSDdrone.i<-vector("list",length(IS.avail.10locs))
+#   pred.mat.mod.NSDdrone.i<-vector("list",length(IS.avail.10locs))
+#   lwrbnd.mat.mod.NSDdrone.i<-vector("list",length(IS.avail.10locs))
+#   uprbnd.mat.mod.NSDdrone.i<-vector("list",length(IS.avail.10locs))
+#   
+#   for(j in 1:length(IS.avail.10locs)){
+#     mod.NSDdrone.i[[j]]<-run.NSDmodel(nIter=10000,nBurnIn=100,nChains=2,nThin=10,
+#                                     yData=IS.avail.10locs[-j],
+#                                     xData=t(simData2.droneLocs.sd1[[1]][which.closest.drone.insitu[[1]][-j],]),
+#                                     xPred=t(simData2.droneLocs.sd1[[1]][which.closest.drone.insitu[[1]][j],]),
+#                                     coordsData=as.matrix(grid.xy.insitu[[1]])[-j,],
+#                                     coordsPred=as.matrix(grid.xy.insitu[[1]])[j,],
+#                                     By=eb.IS.bspline[[i]][-j],
+#                                     Bx=eb.RS.bspline[[i]],
+#                                     ByPred=eb.IS.bspline[[i]][[j]],
+#                                     phiAlpha=0.1, phiBeta=0.1,
+#                                     aAlpha=2, bAlpha=1,
+#                                     aBeta=2, bBeta=1,
+#                                     aY=2, bY=1,
+#                                     aC=2, bC=1,
+#                                     aX=2, bX=1,
+#                                     muD=rep(0, seq.bspline[i]),SigmaD=100*diag(seq.bspline[i]),
+#                                     sigmaAlphaPrecInit=1.1, sigmaBetaPrecInit=1.2,
+#                                     sigmaYPrecInit=1.10,
+#                                     sigmaCPrecInit=1.4,
+#                                     alphaInit=matrix(0, nrow = seq.bspline[i], ncol = length(IS.avail.10locs)-1),
+#                                     betaInit=matrix(0.4, nrow = seq.bspline[i], ncol = length(IS.avail.10locs)-1),
+#                                     cInit=matrix(0.5, nrow = seq.bspline[i], ncol = length(IS.avail.10locs)-1),
+#                                     sigmaXPrecInit=1.5,
+#                                     dInit=matrix(0.6, nrow = seq.bspline[i], ncol = length(IS.avail.10locs)-1)#,
+#     )
+#     summary.mod.NSDdrone.i[[j]]<-summary(mod.NSDdrone.i[[j]])
+#     pred.mat.mod.NSDdrone.i[[j]]<-matrix(summary.mod.NSDdrone.i[[j]]$quantiles[nrow(summary.mod.NSDdrone.i[[j]]$quantiles)-((7*1-1):0),3],ncol=1,nrow=7)
+#     lwrbnd.mat.mod.NSDdrone.i[[j]]<-matrix(summary.mod.NSDdrone.i[[j]]$quantiles[nrow(summary.mod.NSDdrone.i[[j]]$quantiles)-((7*1-1):0),1],ncol=1,nrow=7)
+#     uprbnd.mat.mod.NSDdrone.i[[j]]<-matrix(summary.mod.NSDdrone.i[[j]]$quantiles[nrow(summary.mod.NSDdrone.i[[j]]$quantiles)-((7*1-1):0),5],ncol=1,nrow=7)
+#   }
+#   
+#   pred.mat.mod.NSDdrone.10locs[[i]]<-data.frame(matrix(unlist(pred.mat.mod.NSDdrone.i),ncol=length(IS.avail.10locs)))
+#   lwrbnd.mat.mod.NSDdrone.10locs[[i]]<-data.frame(matrix(unlist(lwrbnd.mat.mod.NSDdrone.i),ncol=length(IS.avail.10locs)))
+#   uprbnd.mat.mod.NSDdrone.10locs[[i]]<-data.frame(matrix(unlist(uprbnd.mat.mod.NSDdrone.i),ncol=length(IS.avail.10locs)))
+#   
+#   print(i)
+# }
+# # NOT SAVED:
+# # save(pred.mat.mod.NSDdrone.10locs,file="C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/figures_new_data_sim_Oct2020/output_example_plots_for_TIES2020/pred_mat_mod_NSDdrone_10locs.RData")
+# # save(lwrbnd.mat.mod.NSDdrone.10locs,file="C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/figures_new_data_sim_Oct2020/output_example_plots_for_TIES2020/lwrbnd_mat_mod_NSDdrone_10locs.RData")
+# # save(uprbnd.mat.mod.NSDdrone.10locs,file="C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/figures_new_data_sim_Oct2020/output_example_plots_for_TIES2020/uprbnd_mat_mod_NSDdrone_10locs.RData")
+# 
+# rmse.vec.bspline.NSD<-numeric(length(seq.bspline))
+# for(i in 1:length(seq.bspline)){
+#   rmse.vec.bspline.NSD[i]<-rmse(as.matrix(pred.mat.mod.NSDdrone.10locs[[i]]),t(simData2.insitu.sd1[[1]]))
+# }
+# plot(rmse.vec.bspline.NSD~seq.bspline,type="l")
+# seq.bspline[which.min(rmse.vec.bspline.NSD)] # 8
+# 
+# par(mfrow=c(3,4))
+# for(i in 1:10){
+#   plot(simData.true[which.closest.drone.insitu[[1]][i],]~dates.dec.5years,type="l",xlim=c(min(dates.dec.droneLocs),max(dates.dec.droneLocs)),ylim=c(min(c(simData.true[which.closest.drone.insitu[[1]],],pred.mat.res.F.ukfd)),max(c(simData.true[which.closest.drone.insitu[[1]],],pred.mat.res.F.ukfd))),xlab="Year",ylab="Value")
+#   points(simData2.insitu.sd1[[1]][i,]~dates.dec.droneLocs,type="o",pch=15,col=2)
+#   lines(pred.mat.mod.NSDdrone.10locs[[which.min(rmse.vec.bspline.NSD)]][,i]~dates.dec.droneLocs,type="o",pch=16,col="grey")
+# }
+
+##
+
+# Predicting in situ data values from satellite data, given drone data at different numbers of locations:
+
+simData3.insitu.sd1<-vector("list",length(simData.insitu.sd1));for(i in 1:length(simData3.insitu.sd1)){simData3.insitu.sd1[[i]]<-simData.insitu.sd1[[i]][,dates.5years%in%dates.insitu]}
+
+# Data required:
+
+# . Response: a selection of drone data (1000 randomly selected locations, 100 within each of the 10 drone areas), with prediction at 100 locations (10 
+#   within each of the 10 drone areas)
+# . Assessment: rmse(predictions, "true" data at these locations)
+# . Explanatory variable: satellite data at grid cells containing the selected drone data cells
+# . Population: all drone grid cells within one of the 10 drone areas
+
+grid.xy.droneLocs.all<-rbind.data.frame(grid.xy.droneLocs[[1]],grid.xy.droneLocs[[2]],grid.xy.droneLocs[[3]],grid.xy.droneLocs[[4]],grid.xy.droneLocs[[5]],
+                                        grid.xy.droneLocs[[6]],grid.xy.droneLocs[[7]],grid.xy.droneLocs[[8]],grid.xy.droneLocs[[9]],grid.xy.droneLocs[[10]])
+# set.seed(1100)
+# sample.grid.xy.droneLocs.all<-numeric(1100);for(i in 1:10){sample.grid.xy.droneLocs.all[110*(i-1)+1:110]<-sample((i-1)*2500+(1:2500),110)}
+# seq1.grid.xy.droneLocs.all<-numeric(1000);for(i in 1:10){seq1.grid.xy.droneLocs.all[(i-1)*100+(1:100)]<-(i-1)*110+(1:100)}
+# seq2.grid.xy.droneLocs.all<-numeric(100);for(i in 1:10){seq2.grid.xy.droneLocs.all[(i-1)*10+(1:10)]<-(i-1)*110+(101:110)}
+# sample1.grid.xy.droneLocs.all<-sample.grid.xy.droneLocs.all[seq1.grid.xy.droneLocs.all]
+# sample2.grid.xy.droneLocs.all<-sample.grid.xy.droneLocs.all[seq2.grid.xy.droneLocs.all]
+
+simData3.droneLocs.sd1<-rbind.data.frame(simData2.droneLocs.sd1[[1]],simData2.droneLocs.sd1[[2]],simData2.droneLocs.sd1[[3]],simData2.droneLocs.sd1[[4]],
+                                         simData2.droneLocs.sd1[[5]],simData2.droneLocs.sd1[[6]],simData2.droneLocs.sd1[[7]],simData2.droneLocs.sd1[[8]],
+                                         simData2.droneLocs.sd1[[9]],simData2.droneLocs.sd1[[10]])
+
+set.seed(1100)
+sample.grid.xy.droneLocs.all<-vector("list",10)
+seq1.grid.xy.droneLocs.all<-vector("list",10)
+seq2.grid.xy.droneLocs.all<-vector("list",10)
+sample1.grid.xy.droneLocs.all<-vector("list",10)
+sample2.grid.xy.droneLocs.all<-vector("list",10)
+for(i in 1:10){
+  sample.grid.xy.droneLocs.all[[i]]<-vector("list",10)
+  seq1.grid.xy.droneLocs.all[[i]]<-vector("list",10)
+  seq2.grid.xy.droneLocs.all[[i]]<-vector("list",10)
+  sample1.grid.xy.droneLocs.all[[i]]<-vector("list",10)
+  sample2.grid.xy.droneLocs.all[[i]]<-vector("list",10)
+  for(j in 1:10){
+    sample.grid.xy.droneLocs.all[[i]][[j]]<-numeric(1100);for(k in 1:10){sample.grid.xy.droneLocs.all[[i]][[j]][110*(k-1)+1:110]<-sample((k-1)*2500+(1:2500),110)}
+    seq1.grid.xy.droneLocs.all[[i]][[j]]<-numeric(1000);for(k in 1:10){seq1.grid.xy.droneLocs.all[[i]][[j]][(k-1)*100+(1:100)]<-(k-1)*110+(1:100)}
+    seq2.grid.xy.droneLocs.all[[i]][[j]]<-numeric(100);for(k in 1:10){seq2.grid.xy.droneLocs.all[[i]][[j]][(k-1)*10+(1:10)]<-(k-1)*110+(101:110)}
+    sample1.grid.xy.droneLocs.all[[i]][[j]]<-sample.grid.xy.droneLocs.all[[i]][[j]][seq1.grid.xy.droneLocs.all[[i]][[j]]]
+    sample2.grid.xy.droneLocs.all[[i]][[j]]<-sample.grid.xy.droneLocs.all[[i]][[j]][seq2.grid.xy.droneLocs.all[[i]][[j]]]
+  }
+}
+
+# The numbers of permutations of choices of pairs/groups of drone regions are as follows, for 1 to 10 regions in each group:
+factorial(10)/(factorial(1:10)*factorial(10-(1:10)))
+#  10  45 120 210 252 210 120  45  10   1
+# i.e. too many to run in a short time period. Just choose 10 choices for each number of drone regions considered:
+set.seed(2100)
+sample.1.regions<-matrix(1:10,nrow=10,ncol=1)
+sample.2.regions<-t(combn(1:10,2))[sample(nrow(t(combn(1:10,2))),10),]
+sample.3.regions<-t(combn(1:10,3))[sample(nrow(t(combn(1:10,3))),10),]
+sample.4.regions<-t(combn(1:10,4))[sample(nrow(t(combn(1:10,4))),10),]
+sample.5.regions<-t(combn(1:10,5))[sample(nrow(t(combn(1:10,5))),10),]
+sample.6.regions<-t(combn(1:10,6))[sample(nrow(t(combn(1:10,6))),10),]
+sample.7.regions<-t(combn(1:10,7))[sample(nrow(t(combn(1:10,7))),10),]
+sample.8.regions<-t(combn(1:10,8))[sample(nrow(t(combn(1:10,8))),10),]
+sample.9.regions<-t(combn(1:10,9))[sample(nrow(t(combn(1:10,9))),10),]
+sample.10.regions<-matrix(1:10,nrow=1,ncol=10)
+
+set.seed(3100)
+sample.1.locs<-sample(100,100)
+sample.2.locs<-sample(200,100)
+sample.3.locs<-sample(300,100)
+sample.4.locs<-sample(400,100)
+sample.5.locs<-sample(500,100)
+sample.6.locs<-sample(600,100)
+sample.7.locs<-sample(700,100)
+sample.8.locs<-sample(800,100)
+sample.9.locs<-sample(900,100)
+sample.10.locs<-sample(1000,100)
+
+set.seed(4100)
+sample.1.predlocs<-vector("list",10);for(i in 1:10){sample.1.predlocs[[i]]<-sample(nrow(grid.xy),10)}
+sample.2.predlocs<-vector("list",10);for(i in 1:10){sample.2.predlocs[[i]]<-sample(nrow(grid.xy),10)}
+sample.3.predlocs<-vector("list",10);for(i in 1:10){sample.3.predlocs[[i]]<-sample(nrow(grid.xy),10)}
+sample.4.predlocs<-vector("list",10);for(i in 1:10){sample.4.predlocs[[i]]<-sample(nrow(grid.xy),10)}
+sample.5.predlocs<-vector("list",10);for(i in 1:10){sample.5.predlocs[[i]]<-sample(nrow(grid.xy),10)}
+sample.6.predlocs<-vector("list",10);for(i in 1:10){sample.6.predlocs[[i]]<-sample(nrow(grid.xy),10)}
+sample.7.predlocs<-vector("list",10);for(i in 1:10){sample.7.predlocs[[i]]<-sample(nrow(grid.xy),10)}
+sample.8.predlocs<-vector("list",10);for(i in 1:10){sample.8.predlocs[[i]]<-sample(nrow(grid.xy),10)}
+sample.9.predlocs<-vector("list",10);for(i in 1:10){sample.9.predlocs[[i]]<-sample(nrow(grid.xy),10)}
+sample.10.predlocs<-vector("list",10);for(i in 1:10){sample.10.predlocs[[i]]<-sample(nrow(grid.xy),10)}
+
+data.resp<-vector("list",10)
+for(i in 1:10){
+  data.resp[[i]]<-vector("list",10)
+}
+for(j in 1:10){
+  data.resp[[1]][[j]]<-rbind.data.frame(simData3.droneLocs.sd1[sample1.grid.xy.droneLocs.all[[1]][[j]][(j-1)*100+(1:100)],])
+  data.resp[[2]][[j]]<-rbind.data.frame(simData3.droneLocs.sd1[sample1.grid.xy.droneLocs.all[[2]][[j]][(sample.2.regions[j,1]-1)*100+(1:100)],],
+                                        simData3.droneLocs.sd1[sample1.grid.xy.droneLocs.all[[2]][[j]][(sample.2.regions[j,2]-1)*100+(1:100)],])[sample.2.locs,]
+  data.resp[[3]][[j]]<-rbind.data.frame(simData3.droneLocs.sd1[sample1.grid.xy.droneLocs.all[[3]][[j]][(sample.3.regions[j,1]-1)*100+(1:100)],],
+                                        simData3.droneLocs.sd1[sample1.grid.xy.droneLocs.all[[3]][[j]][(sample.3.regions[j,2]-1)*100+(1:100)],],
+                                        simData3.droneLocs.sd1[sample1.grid.xy.droneLocs.all[[3]][[j]][(sample.3.regions[j,3]-1)*100+(1:100)],])[sample.3.locs,]
+  data.resp[[4]][[j]]<-rbind.data.frame(simData3.droneLocs.sd1[sample1.grid.xy.droneLocs.all[[4]][[j]][(sample.4.regions[j,1]-1)*100+(1:100)],],
+                                        simData3.droneLocs.sd1[sample1.grid.xy.droneLocs.all[[4]][[j]][(sample.4.regions[j,2]-1)*100+(1:100)],],
+                                        simData3.droneLocs.sd1[sample1.grid.xy.droneLocs.all[[4]][[j]][(sample.4.regions[j,3]-1)*100+(1:100)],],
+                                        simData3.droneLocs.sd1[sample1.grid.xy.droneLocs.all[[4]][[j]][(sample.4.regions[j,4]-1)*100+(1:100)],])[sample.4.locs,]
+  data.resp[[5]][[j]]<-rbind.data.frame(simData3.droneLocs.sd1[sample1.grid.xy.droneLocs.all[[5]][[j]][(sample.5.regions[j,1]-1)*100+(1:100)],],
+                                        simData3.droneLocs.sd1[sample1.grid.xy.droneLocs.all[[5]][[j]][(sample.5.regions[j,2]-1)*100+(1:100)],],
+                                        simData3.droneLocs.sd1[sample1.grid.xy.droneLocs.all[[5]][[j]][(sample.5.regions[j,3]-1)*100+(1:100)],],
+                                        simData3.droneLocs.sd1[sample1.grid.xy.droneLocs.all[[5]][[j]][(sample.5.regions[j,4]-1)*100+(1:100)],],
+                                        simData3.droneLocs.sd1[sample1.grid.xy.droneLocs.all[[5]][[j]][(sample.5.regions[j,5]-1)*100+(1:100)],])[sample.5.locs,]
+  data.resp[[6]][[j]]<-rbind.data.frame(simData3.droneLocs.sd1[sample1.grid.xy.droneLocs.all[[6]][[j]][(sample.6.regions[j,1]-1)*100+(1:100)],],
+                                        simData3.droneLocs.sd1[sample1.grid.xy.droneLocs.all[[6]][[j]][(sample.6.regions[j,2]-1)*100+(1:100)],],
+                                        simData3.droneLocs.sd1[sample1.grid.xy.droneLocs.all[[6]][[j]][(sample.6.regions[j,3]-1)*100+(1:100)],],
+                                        simData3.droneLocs.sd1[sample1.grid.xy.droneLocs.all[[6]][[j]][(sample.6.regions[j,4]-1)*100+(1:100)],],
+                                        simData3.droneLocs.sd1[sample1.grid.xy.droneLocs.all[[6]][[j]][(sample.6.regions[j,5]-1)*100+(1:100)],],
+                                        simData3.droneLocs.sd1[sample1.grid.xy.droneLocs.all[[6]][[j]][(sample.6.regions[j,6]-1)*100+(1:100)],])[sample.6.locs,]
+  data.resp[[7]][[j]]<-rbind.data.frame(simData3.droneLocs.sd1[sample1.grid.xy.droneLocs.all[[7]][[j]][(sample.7.regions[j,1]-1)*100+(1:100)],],
+                                        simData3.droneLocs.sd1[sample1.grid.xy.droneLocs.all[[7]][[j]][(sample.7.regions[j,2]-1)*100+(1:100)],],
+                                        simData3.droneLocs.sd1[sample1.grid.xy.droneLocs.all[[7]][[j]][(sample.7.regions[j,3]-1)*100+(1:100)],],
+                                        simData3.droneLocs.sd1[sample1.grid.xy.droneLocs.all[[7]][[j]][(sample.7.regions[j,4]-1)*100+(1:100)],],
+                                        simData3.droneLocs.sd1[sample1.grid.xy.droneLocs.all[[7]][[j]][(sample.7.regions[j,5]-1)*100+(1:100)],],
+                                        simData3.droneLocs.sd1[sample1.grid.xy.droneLocs.all[[7]][[j]][(sample.7.regions[j,6]-1)*100+(1:100)],],
+                                        simData3.droneLocs.sd1[sample1.grid.xy.droneLocs.all[[7]][[j]][(sample.7.regions[j,7]-1)*100+(1:100)],])[sample.7.locs,]
+  data.resp[[8]][[j]]<-rbind.data.frame(simData3.droneLocs.sd1[sample1.grid.xy.droneLocs.all[[8]][[j]][(sample.8.regions[j,1]-1)*100+(1:100)],],
+                                        simData3.droneLocs.sd1[sample1.grid.xy.droneLocs.all[[8]][[j]][(sample.8.regions[j,2]-1)*100+(1:100)],],
+                                        simData3.droneLocs.sd1[sample1.grid.xy.droneLocs.all[[8]][[j]][(sample.8.regions[j,3]-1)*100+(1:100)],],
+                                        simData3.droneLocs.sd1[sample1.grid.xy.droneLocs.all[[8]][[j]][(sample.8.regions[j,4]-1)*100+(1:100)],],
+                                        simData3.droneLocs.sd1[sample1.grid.xy.droneLocs.all[[8]][[j]][(sample.8.regions[j,5]-1)*100+(1:100)],],
+                                        simData3.droneLocs.sd1[sample1.grid.xy.droneLocs.all[[8]][[j]][(sample.8.regions[j,6]-1)*100+(1:100)],],
+                                        simData3.droneLocs.sd1[sample1.grid.xy.droneLocs.all[[8]][[j]][(sample.8.regions[j,7]-1)*100+(1:100)],],
+                                        simData3.droneLocs.sd1[sample1.grid.xy.droneLocs.all[[8]][[j]][(sample.8.regions[j,8]-1)*100+(1:100)],])[sample.8.locs,]
+  data.resp[[9]][[j]]<-rbind.data.frame(simData3.droneLocs.sd1[sample1.grid.xy.droneLocs.all[[9]][[j]][(sample.9.regions[j,1]-1)*100+(1:100)],],
+                                        simData3.droneLocs.sd1[sample1.grid.xy.droneLocs.all[[9]][[j]][(sample.9.regions[j,2]-1)*100+(1:100)],],
+                                        simData3.droneLocs.sd1[sample1.grid.xy.droneLocs.all[[9]][[j]][(sample.9.regions[j,3]-1)*100+(1:100)],],
+                                        simData3.droneLocs.sd1[sample1.grid.xy.droneLocs.all[[9]][[j]][(sample.9.regions[j,4]-1)*100+(1:100)],],
+                                        simData3.droneLocs.sd1[sample1.grid.xy.droneLocs.all[[9]][[j]][(sample.9.regions[j,5]-1)*100+(1:100)],],
+                                        simData3.droneLocs.sd1[sample1.grid.xy.droneLocs.all[[9]][[j]][(sample.9.regions[j,6]-1)*100+(1:100)],],
+                                        simData3.droneLocs.sd1[sample1.grid.xy.droneLocs.all[[9]][[j]][(sample.9.regions[j,7]-1)*100+(1:100)],],
+                                        simData3.droneLocs.sd1[sample1.grid.xy.droneLocs.all[[9]][[j]][(sample.9.regions[j,8]-1)*100+(1:100)],],
+                                        simData3.droneLocs.sd1[sample1.grid.xy.droneLocs.all[[9]][[j]][(sample.9.regions[j,9]-1)*100+(1:100)],])[sample.9.locs,]
+  data.resp[[10]][[j]]<-rbind.data.frame(simData3.droneLocs.sd1[sample1.grid.xy.droneLocs.all[[10]][[j]],])[sample.10.locs,]
+}
+
+coords.resp<-vector("list",10)
+for(i in 1:10){
+  coords.resp[[i]]<-vector("list",10)
+}
+for(j in 1:10){
+  coords.resp[[1]][[j]]<-grid.xy.droneLocs.all[sample1.grid.xy.droneLocs.all[[1]][[j]][(j-1)*100+(1:100)],]
+  coords.resp[[2]][[j]]<-rbind.data.frame(grid.xy.droneLocs.all[sample1.grid.xy.droneLocs.all[[2]][[j]][(sample.2.regions[j,1]-1)*100+(1:100)],],
+                                        grid.xy.droneLocs.all[sample1.grid.xy.droneLocs.all[[2]][[j]][(sample.2.regions[j,2]-1)*100+(1:100)],])[sample.2.locs,]
+  coords.resp[[3]][[j]]<-rbind.data.frame(grid.xy.droneLocs.all[sample1.grid.xy.droneLocs.all[[3]][[j]][(sample.3.regions[j,1]-1)*100+(1:100)],],
+                                        grid.xy.droneLocs.all[sample1.grid.xy.droneLocs.all[[3]][[j]][(sample.3.regions[j,2]-1)*100+(1:100)],],
+                                        grid.xy.droneLocs.all[sample1.grid.xy.droneLocs.all[[3]][[j]][(sample.3.regions[j,3]-1)*100+(1:100)],])[sample.3.locs,]
+  coords.resp[[4]][[j]]<-rbind.data.frame(grid.xy.droneLocs.all[sample1.grid.xy.droneLocs.all[[4]][[j]][(sample.4.regions[j,1]-1)*100+(1:100)],],
+                                        grid.xy.droneLocs.all[sample1.grid.xy.droneLocs.all[[4]][[j]][(sample.4.regions[j,2]-1)*100+(1:100)],],
+                                        grid.xy.droneLocs.all[sample1.grid.xy.droneLocs.all[[4]][[j]][(sample.4.regions[j,3]-1)*100+(1:100)],],
+                                        grid.xy.droneLocs.all[sample1.grid.xy.droneLocs.all[[4]][[j]][(sample.4.regions[j,4]-1)*100+(1:100)],])[sample.4.locs,]
+  coords.resp[[5]][[j]]<-rbind.data.frame(grid.xy.droneLocs.all[sample1.grid.xy.droneLocs.all[[5]][[j]][(sample.5.regions[j,1]-1)*100+(1:100)],],
+                                        grid.xy.droneLocs.all[sample1.grid.xy.droneLocs.all[[5]][[j]][(sample.5.regions[j,2]-1)*100+(1:100)],],
+                                        grid.xy.droneLocs.all[sample1.grid.xy.droneLocs.all[[5]][[j]][(sample.5.regions[j,3]-1)*100+(1:100)],],
+                                        grid.xy.droneLocs.all[sample1.grid.xy.droneLocs.all[[5]][[j]][(sample.5.regions[j,4]-1)*100+(1:100)],],
+                                        grid.xy.droneLocs.all[sample1.grid.xy.droneLocs.all[[5]][[j]][(sample.5.regions[j,5]-1)*100+(1:100)],])[sample.5.locs,]
+  coords.resp[[6]][[j]]<-rbind.data.frame(grid.xy.droneLocs.all[sample1.grid.xy.droneLocs.all[[6]][[j]][(sample.6.regions[j,1]-1)*100+(1:100)],],
+                                        grid.xy.droneLocs.all[sample1.grid.xy.droneLocs.all[[6]][[j]][(sample.6.regions[j,2]-1)*100+(1:100)],],
+                                        grid.xy.droneLocs.all[sample1.grid.xy.droneLocs.all[[6]][[j]][(sample.6.regions[j,3]-1)*100+(1:100)],],
+                                        grid.xy.droneLocs.all[sample1.grid.xy.droneLocs.all[[6]][[j]][(sample.6.regions[j,4]-1)*100+(1:100)],],
+                                        grid.xy.droneLocs.all[sample1.grid.xy.droneLocs.all[[6]][[j]][(sample.6.regions[j,5]-1)*100+(1:100)],],
+                                        grid.xy.droneLocs.all[sample1.grid.xy.droneLocs.all[[6]][[j]][(sample.6.regions[j,6]-1)*100+(1:100)],])[sample.6.locs,]
+  coords.resp[[7]][[j]]<-rbind.data.frame(grid.xy.droneLocs.all[sample1.grid.xy.droneLocs.all[[7]][[j]][(sample.7.regions[j,1]-1)*100+(1:100)],],
+                                        grid.xy.droneLocs.all[sample1.grid.xy.droneLocs.all[[7]][[j]][(sample.7.regions[j,2]-1)*100+(1:100)],],
+                                        grid.xy.droneLocs.all[sample1.grid.xy.droneLocs.all[[7]][[j]][(sample.7.regions[j,3]-1)*100+(1:100)],],
+                                        grid.xy.droneLocs.all[sample1.grid.xy.droneLocs.all[[7]][[j]][(sample.7.regions[j,4]-1)*100+(1:100)],],
+                                        grid.xy.droneLocs.all[sample1.grid.xy.droneLocs.all[[7]][[j]][(sample.7.regions[j,5]-1)*100+(1:100)],],
+                                        grid.xy.droneLocs.all[sample1.grid.xy.droneLocs.all[[7]][[j]][(sample.7.regions[j,6]-1)*100+(1:100)],],
+                                        grid.xy.droneLocs.all[sample1.grid.xy.droneLocs.all[[7]][[j]][(sample.7.regions[j,7]-1)*100+(1:100)],])[sample.7.locs,]
+  coords.resp[[8]][[j]]<-rbind.data.frame(grid.xy.droneLocs.all[sample1.grid.xy.droneLocs.all[[8]][[j]][(sample.8.regions[j,1]-1)*100+(1:100)],],
+                                        grid.xy.droneLocs.all[sample1.grid.xy.droneLocs.all[[8]][[j]][(sample.8.regions[j,2]-1)*100+(1:100)],],
+                                        grid.xy.droneLocs.all[sample1.grid.xy.droneLocs.all[[8]][[j]][(sample.8.regions[j,3]-1)*100+(1:100)],],
+                                        grid.xy.droneLocs.all[sample1.grid.xy.droneLocs.all[[8]][[j]][(sample.8.regions[j,4]-1)*100+(1:100)],],
+                                        grid.xy.droneLocs.all[sample1.grid.xy.droneLocs.all[[8]][[j]][(sample.8.regions[j,5]-1)*100+(1:100)],],
+                                        grid.xy.droneLocs.all[sample1.grid.xy.droneLocs.all[[8]][[j]][(sample.8.regions[j,6]-1)*100+(1:100)],],
+                                        grid.xy.droneLocs.all[sample1.grid.xy.droneLocs.all[[8]][[j]][(sample.8.regions[j,7]-1)*100+(1:100)],],
+                                        grid.xy.droneLocs.all[sample1.grid.xy.droneLocs.all[[8]][[j]][(sample.8.regions[j,8]-1)*100+(1:100)],])[sample.8.locs,]
+  coords.resp[[9]][[j]]<-rbind.data.frame(grid.xy.droneLocs.all[sample1.grid.xy.droneLocs.all[[9]][[j]][(sample.9.regions[j,1]-1)*100+(1:100)],],
+                                        grid.xy.droneLocs.all[sample1.grid.xy.droneLocs.all[[9]][[j]][(sample.9.regions[j,2]-1)*100+(1:100)],],
+                                        grid.xy.droneLocs.all[sample1.grid.xy.droneLocs.all[[9]][[j]][(sample.9.regions[j,3]-1)*100+(1:100)],],
+                                        grid.xy.droneLocs.all[sample1.grid.xy.droneLocs.all[[9]][[j]][(sample.9.regions[j,4]-1)*100+(1:100)],],
+                                        grid.xy.droneLocs.all[sample1.grid.xy.droneLocs.all[[9]][[j]][(sample.9.regions[j,5]-1)*100+(1:100)],],
+                                        grid.xy.droneLocs.all[sample1.grid.xy.droneLocs.all[[9]][[j]][(sample.9.regions[j,6]-1)*100+(1:100)],],
+                                        grid.xy.droneLocs.all[sample1.grid.xy.droneLocs.all[[9]][[j]][(sample.9.regions[j,7]-1)*100+(1:100)],],
+                                        grid.xy.droneLocs.all[sample1.grid.xy.droneLocs.all[[9]][[j]][(sample.9.regions[j,8]-1)*100+(1:100)],],
+                                        grid.xy.droneLocs.all[sample1.grid.xy.droneLocs.all[[9]][[j]][(sample.9.regions[j,9]-1)*100+(1:100)],])[sample.9.locs,]
+  coords.resp[[10]][[j]]<-rbind.data.frame(grid.xy.droneLocs.all[sample1.grid.xy.droneLocs.all[[10]][[j]],])[sample.10.locs,]
+}
+
+# data.pred<-vector("list",10)
+# for(i in 1:10){
+#   data.pred[[i]]<-vector("list",10)
+# }
+# for(j in 1:10){
+#   data.pred[[1]][[j]]<-rbind.data.frame(simData3.droneLocs.sd1[sample2.grid.xy.droneLocs.all[[1]][[j]][(j-1)*10+(1:10)],])
+#   data.pred[[2]][[j]]<-rbind.data.frame(simData3.droneLocs.sd1[sample2.grid.xy.droneLocs.all[[2]][[j]][(sample.2.regions[j,1]-1)*10+(1:10)],],
+#                                         simData3.droneLocs.sd1[sample2.grid.xy.droneLocs.all[[2]][[j]][(sample.2.regions[j,2]-1)*10+(1:10)],])[sample.2.predlocs,]
+#   data.pred[[3]][[j]]<-rbind.data.frame(simData3.droneLocs.sd1[sample2.grid.xy.droneLocs.all[[3]][[j]][(sample.3.regions[j,1]-1)*10+(1:10)],],
+#                                         simData3.droneLocs.sd1[sample2.grid.xy.droneLocs.all[[3]][[j]][(sample.3.regions[j,2]-1)*10+(1:10)],],
+#                                         simData3.droneLocs.sd1[sample2.grid.xy.droneLocs.all[[3]][[j]][(sample.3.regions[j,3]-1)*10+(1:10)],])[sample.3.predlocs,]
+#   data.pred[[4]][[j]]<-rbind.data.frame(simData3.droneLocs.sd1[sample2.grid.xy.droneLocs.all[[4]][[j]][(sample.4.regions[j,1]-1)*10+(1:10)],],
+#                                         simData3.droneLocs.sd1[sample2.grid.xy.droneLocs.all[[4]][[j]][(sample.4.regions[j,2]-1)*10+(1:10)],],
+#                                         simData3.droneLocs.sd1[sample2.grid.xy.droneLocs.all[[4]][[j]][(sample.4.regions[j,3]-1)*10+(1:10)],],
+#                                         simData3.droneLocs.sd1[sample2.grid.xy.droneLocs.all[[4]][[j]][(sample.4.regions[j,4]-1)*10+(1:10)],])[sample.4.predlocs,]
+#   data.pred[[5]][[j]]<-rbind.data.frame(simData3.droneLocs.sd1[sample2.grid.xy.droneLocs.all[[5]][[j]][(sample.5.regions[j,1]-1)*10+(1:10)],],
+#                                         simData3.droneLocs.sd1[sample2.grid.xy.droneLocs.all[[5]][[j]][(sample.5.regions[j,2]-1)*10+(1:10)],],
+#                                         simData3.droneLocs.sd1[sample2.grid.xy.droneLocs.all[[5]][[j]][(sample.5.regions[j,3]-1)*10+(1:10)],],
+#                                         simData3.droneLocs.sd1[sample2.grid.xy.droneLocs.all[[5]][[j]][(sample.5.regions[j,4]-1)*10+(1:10)],],
+#                                         simData3.droneLocs.sd1[sample2.grid.xy.droneLocs.all[[5]][[j]][(sample.5.regions[j,5]-1)*10+(1:10)],])[sample.5.predlocs,]
+#   data.pred[[6]][[j]]<-rbind.data.frame(simData3.droneLocs.sd1[sample2.grid.xy.droneLocs.all[[6]][[j]][(sample.6.regions[j,1]-1)*10+(1:10)],],
+#                                         simData3.droneLocs.sd1[sample2.grid.xy.droneLocs.all[[6]][[j]][(sample.6.regions[j,2]-1)*10+(1:10)],],
+#                                         simData3.droneLocs.sd1[sample2.grid.xy.droneLocs.all[[6]][[j]][(sample.6.regions[j,3]-1)*10+(1:10)],],
+#                                         simData3.droneLocs.sd1[sample2.grid.xy.droneLocs.all[[6]][[j]][(sample.6.regions[j,4]-1)*10+(1:10)],],
+#                                         simData3.droneLocs.sd1[sample2.grid.xy.droneLocs.all[[6]][[j]][(sample.6.regions[j,5]-1)*10+(1:10)],],
+#                                         simData3.droneLocs.sd1[sample2.grid.xy.droneLocs.all[[6]][[j]][(sample.6.regions[j,6]-1)*10+(1:10)],])[sample.6.predlocs,]
+#   data.pred[[7]][[j]]<-rbind.data.frame(simData3.droneLocs.sd1[sample2.grid.xy.droneLocs.all[[7]][[j]][(sample.7.regions[j,1]-1)*10+(1:10)],],
+#                                         simData3.droneLocs.sd1[sample2.grid.xy.droneLocs.all[[7]][[j]][(sample.7.regions[j,2]-1)*10+(1:10)],],
+#                                         simData3.droneLocs.sd1[sample2.grid.xy.droneLocs.all[[7]][[j]][(sample.7.regions[j,3]-1)*10+(1:10)],],
+#                                         simData3.droneLocs.sd1[sample2.grid.xy.droneLocs.all[[7]][[j]][(sample.7.regions[j,4]-1)*10+(1:10)],],
+#                                         simData3.droneLocs.sd1[sample2.grid.xy.droneLocs.all[[7]][[j]][(sample.7.regions[j,5]-1)*10+(1:10)],],
+#                                         simData3.droneLocs.sd1[sample2.grid.xy.droneLocs.all[[7]][[j]][(sample.7.regions[j,6]-1)*10+(1:10)],],
+#                                         simData3.droneLocs.sd1[sample2.grid.xy.droneLocs.all[[7]][[j]][(sample.7.regions[j,7]-1)*10+(1:10)],])[sample.7.predlocs,]
+#   data.pred[[8]][[j]]<-rbind.data.frame(simData3.droneLocs.sd1[sample2.grid.xy.droneLocs.all[[8]][[j]][(sample.8.regions[j,1]-1)*10+(1:10)],],
+#                                         simData3.droneLocs.sd1[sample2.grid.xy.droneLocs.all[[8]][[j]][(sample.8.regions[j,2]-1)*10+(1:10)],],
+#                                         simData3.droneLocs.sd1[sample2.grid.xy.droneLocs.all[[8]][[j]][(sample.8.regions[j,3]-1)*10+(1:10)],],
+#                                         simData3.droneLocs.sd1[sample2.grid.xy.droneLocs.all[[8]][[j]][(sample.8.regions[j,4]-1)*10+(1:10)],],
+#                                         simData3.droneLocs.sd1[sample2.grid.xy.droneLocs.all[[8]][[j]][(sample.8.regions[j,5]-1)*10+(1:10)],],
+#                                         simData3.droneLocs.sd1[sample2.grid.xy.droneLocs.all[[8]][[j]][(sample.8.regions[j,6]-1)*10+(1:10)],],
+#                                         simData3.droneLocs.sd1[sample2.grid.xy.droneLocs.all[[8]][[j]][(sample.8.regions[j,7]-1)*10+(1:10)],],
+#                                         simData3.droneLocs.sd1[sample2.grid.xy.droneLocs.all[[8]][[j]][(sample.8.regions[j,8]-1)*10+(1:10)],])[sample.8.predlocs,]
+#   data.pred[[9]][[j]]<-rbind.data.frame(simData3.droneLocs.sd1[sample2.grid.xy.droneLocs.all[[9]][[j]][(sample.9.regions[j,1]-1)*10+(1:10)],],
+#                                         simData3.droneLocs.sd1[sample2.grid.xy.droneLocs.all[[9]][[j]][(sample.9.regions[j,2]-1)*10+(1:10)],],
+#                                         simData3.droneLocs.sd1[sample2.grid.xy.droneLocs.all[[9]][[j]][(sample.9.regions[j,3]-1)*10+(1:10)],],
+#                                         simData3.droneLocs.sd1[sample2.grid.xy.droneLocs.all[[9]][[j]][(sample.9.regions[j,4]-1)*10+(1:10)],],
+#                                         simData3.droneLocs.sd1[sample2.grid.xy.droneLocs.all[[9]][[j]][(sample.9.regions[j,5]-1)*10+(1:10)],],
+#                                         simData3.droneLocs.sd1[sample2.grid.xy.droneLocs.all[[9]][[j]][(sample.9.regions[j,6]-1)*10+(1:10)],],
+#                                         simData3.droneLocs.sd1[sample2.grid.xy.droneLocs.all[[9]][[j]][(sample.9.regions[j,7]-1)*10+(1:10)],],
+#                                         simData3.droneLocs.sd1[sample2.grid.xy.droneLocs.all[[9]][[j]][(sample.9.regions[j,8]-1)*10+(1:10)],],
+#                                         simData3.droneLocs.sd1[sample2.grid.xy.droneLocs.all[[9]][[j]][(sample.9.regions[j,9]-1)*10+(1:10)],])[sample.9.predlocs,]
+#   data.pred[[10]][[j]]<-rbind.data.frame(simData3.droneLocs.sd1[sample2.grid.xy.droneLocs.all[[10]][[j]],])[sample.10.predlocs,]
+# }
+# 
+# coords.pred<-vector("list",10)
+# for(i in 1:10){
+#   coords.pred[[i]]<-vector("list",10)
+# }
+# for(j in 1:10){
+#   coords.pred[[1]][[j]]<-grid.xy.droneLocs.all[sample2.grid.xy.droneLocs.all[[1]][[j]][(j-1)*10+(1:10)],]
+#   coords.pred[[2]][[j]]<-rbind.data.frame(grid.xy.droneLocs.all[sample2.grid.xy.droneLocs.all[[2]][[j]][(sample.2.regions[j,1]-1)*10+(1:10)],],
+#                                           grid.xy.droneLocs.all[sample2.grid.xy.droneLocs.all[[2]][[j]][(sample.2.regions[j,2]-1)*10+(1:10)],])[sample.2.predlocs,]
+#   coords.pred[[3]][[j]]<-rbind.data.frame(grid.xy.droneLocs.all[sample2.grid.xy.droneLocs.all[[3]][[j]][(sample.3.regions[j,1]-1)*10+(1:10)],],
+#                                           grid.xy.droneLocs.all[sample2.grid.xy.droneLocs.all[[3]][[j]][(sample.3.regions[j,2]-1)*10+(1:10)],],
+#                                           grid.xy.droneLocs.all[sample2.grid.xy.droneLocs.all[[3]][[j]][(sample.3.regions[j,3]-1)*10+(1:10)],])[sample.3.predlocs,]
+#   coords.pred[[4]][[j]]<-rbind.data.frame(grid.xy.droneLocs.all[sample2.grid.xy.droneLocs.all[[4]][[j]][(sample.4.regions[j,1]-1)*10+(1:10)],],
+#                                           grid.xy.droneLocs.all[sample2.grid.xy.droneLocs.all[[4]][[j]][(sample.4.regions[j,2]-1)*10+(1:10)],],
+#                                           grid.xy.droneLocs.all[sample2.grid.xy.droneLocs.all[[4]][[j]][(sample.4.regions[j,3]-1)*10+(1:10)],],
+#                                           grid.xy.droneLocs.all[sample2.grid.xy.droneLocs.all[[4]][[j]][(sample.4.regions[j,4]-1)*10+(1:10)],])[sample.4.predlocs,]
+#   coords.pred[[5]][[j]]<-rbind.data.frame(grid.xy.droneLocs.all[sample2.grid.xy.droneLocs.all[[5]][[j]][(sample.5.regions[j,1]-1)*10+(1:10)],],
+#                                           grid.xy.droneLocs.all[sample2.grid.xy.droneLocs.all[[5]][[j]][(sample.5.regions[j,2]-1)*10+(1:10)],],
+#                                           grid.xy.droneLocs.all[sample2.grid.xy.droneLocs.all[[5]][[j]][(sample.5.regions[j,3]-1)*10+(1:10)],],
+#                                           grid.xy.droneLocs.all[sample2.grid.xy.droneLocs.all[[5]][[j]][(sample.5.regions[j,4]-1)*10+(1:10)],],
+#                                           grid.xy.droneLocs.all[sample2.grid.xy.droneLocs.all[[5]][[j]][(sample.5.regions[j,5]-1)*10+(1:10)],])[sample.5.predlocs,]
+#   coords.pred[[6]][[j]]<-rbind.data.frame(grid.xy.droneLocs.all[sample2.grid.xy.droneLocs.all[[6]][[j]][(sample.6.regions[j,1]-1)*10+(1:10)],],
+#                                           grid.xy.droneLocs.all[sample2.grid.xy.droneLocs.all[[6]][[j]][(sample.6.regions[j,2]-1)*10+(1:10)],],
+#                                           grid.xy.droneLocs.all[sample2.grid.xy.droneLocs.all[[6]][[j]][(sample.6.regions[j,3]-1)*10+(1:10)],],
+#                                           grid.xy.droneLocs.all[sample2.grid.xy.droneLocs.all[[6]][[j]][(sample.6.regions[j,4]-1)*10+(1:10)],],
+#                                           grid.xy.droneLocs.all[sample2.grid.xy.droneLocs.all[[6]][[j]][(sample.6.regions[j,5]-1)*10+(1:10)],],
+#                                           grid.xy.droneLocs.all[sample2.grid.xy.droneLocs.all[[6]][[j]][(sample.6.regions[j,6]-1)*10+(1:10)],])[sample.6.predlocs,]
+#   coords.pred[[7]][[j]]<-rbind.data.frame(grid.xy.droneLocs.all[sample2.grid.xy.droneLocs.all[[7]][[j]][(sample.7.regions[j,1]-1)*10+(1:10)],],
+#                                           grid.xy.droneLocs.all[sample2.grid.xy.droneLocs.all[[7]][[j]][(sample.7.regions[j,2]-1)*10+(1:10)],],
+#                                           grid.xy.droneLocs.all[sample2.grid.xy.droneLocs.all[[7]][[j]][(sample.7.regions[j,3]-1)*10+(1:10)],],
+#                                           grid.xy.droneLocs.all[sample2.grid.xy.droneLocs.all[[7]][[j]][(sample.7.regions[j,4]-1)*10+(1:10)],],
+#                                           grid.xy.droneLocs.all[sample2.grid.xy.droneLocs.all[[7]][[j]][(sample.7.regions[j,5]-1)*10+(1:10)],],
+#                                           grid.xy.droneLocs.all[sample2.grid.xy.droneLocs.all[[7]][[j]][(sample.7.regions[j,6]-1)*10+(1:10)],],
+#                                           grid.xy.droneLocs.all[sample2.grid.xy.droneLocs.all[[7]][[j]][(sample.7.regions[j,7]-1)*10+(1:10)],])[sample.7.predlocs,]
+#   coords.pred[[8]][[j]]<-rbind.data.frame(grid.xy.droneLocs.all[sample2.grid.xy.droneLocs.all[[8]][[j]][(sample.8.regions[j,1]-1)*10+(1:10)],],
+#                                           grid.xy.droneLocs.all[sample2.grid.xy.droneLocs.all[[8]][[j]][(sample.8.regions[j,2]-1)*10+(1:10)],],
+#                                           grid.xy.droneLocs.all[sample2.grid.xy.droneLocs.all[[8]][[j]][(sample.8.regions[j,3]-1)*10+(1:10)],],
+#                                           grid.xy.droneLocs.all[sample2.grid.xy.droneLocs.all[[8]][[j]][(sample.8.regions[j,4]-1)*10+(1:10)],],
+#                                           grid.xy.droneLocs.all[sample2.grid.xy.droneLocs.all[[8]][[j]][(sample.8.regions[j,5]-1)*10+(1:10)],],
+#                                           grid.xy.droneLocs.all[sample2.grid.xy.droneLocs.all[[8]][[j]][(sample.8.regions[j,6]-1)*10+(1:10)],],
+#                                           grid.xy.droneLocs.all[sample2.grid.xy.droneLocs.all[[8]][[j]][(sample.8.regions[j,7]-1)*10+(1:10)],],
+#                                           grid.xy.droneLocs.all[sample2.grid.xy.droneLocs.all[[8]][[j]][(sample.8.regions[j,8]-1)*10+(1:10)],])[sample.8.predlocs,]
+#   coords.pred[[9]][[j]]<-rbind.data.frame(grid.xy.droneLocs.all[sample2.grid.xy.droneLocs.all[[9]][[j]][(sample.9.regions[j,1]-1)*10+(1:10)],],
+#                                           grid.xy.droneLocs.all[sample2.grid.xy.droneLocs.all[[9]][[j]][(sample.9.regions[j,2]-1)*10+(1:10)],],
+#                                           grid.xy.droneLocs.all[sample2.grid.xy.droneLocs.all[[9]][[j]][(sample.9.regions[j,3]-1)*10+(1:10)],],
+#                                           grid.xy.droneLocs.all[sample2.grid.xy.droneLocs.all[[9]][[j]][(sample.9.regions[j,4]-1)*10+(1:10)],],
+#                                           grid.xy.droneLocs.all[sample2.grid.xy.droneLocs.all[[9]][[j]][(sample.9.regions[j,5]-1)*10+(1:10)],],
+#                                           grid.xy.droneLocs.all[sample2.grid.xy.droneLocs.all[[9]][[j]][(sample.9.regions[j,6]-1)*10+(1:10)],],
+#                                           grid.xy.droneLocs.all[sample2.grid.xy.droneLocs.all[[9]][[j]][(sample.9.regions[j,7]-1)*10+(1:10)],],
+#                                           grid.xy.droneLocs.all[sample2.grid.xy.droneLocs.all[[9]][[j]][(sample.9.regions[j,8]-1)*10+(1:10)],],
+#                                           grid.xy.droneLocs.all[sample2.grid.xy.droneLocs.all[[9]][[j]][(sample.9.regions[j,9]-1)*10+(1:10)],])[sample.9.predlocs,]
+#   coords.pred[[10]][[j]]<-rbind.data.frame(grid.xy.droneLocs.all[sample2.grid.xy.droneLocs.all[[10]][[j]],])[sample.10.predlocs,]
+# }
+
+data.pred<-vector("list",10)
+for(i in 1:10){
+  data.pred[[i]]<-vector("list",10)
+}
+for(j in 1:10){
+  data.pred[[1]][[j]]<-simData.true[sample.1.predlocs[[j]],]
+  data.pred[[2]][[j]]<-simData.true[sample.2.predlocs[[j]],]
+  data.pred[[3]][[j]]<-simData.true[sample.3.predlocs[[j]],]
+  data.pred[[4]][[j]]<-simData.true[sample.4.predlocs[[j]],]
+  data.pred[[5]][[j]]<-simData.true[sample.5.predlocs[[j]],]
+  data.pred[[6]][[j]]<-simData.true[sample.6.predlocs[[j]],]
+  data.pred[[7]][[j]]<-simData.true[sample.7.predlocs[[j]],]
+  data.pred[[8]][[j]]<-simData.true[sample.8.predlocs[[j]],]
+  data.pred[[9]][[j]]<-simData.true[sample.9.predlocs[[j]],]
+  data.pred[[10]][[j]]<-simData.true[sample.10.predlocs[[j]],]
+}
+
+coords.pred<-vector("list",10)
+for(i in 1:10){
+  coords.pred[[i]]<-vector("list",10)
+}
+for(j in 1:10){
+  coords.pred[[1]][[j]]<-cbind.data.frame(x=grid.xy$x[sample.1.predlocs[[j]]],y=grid.xy$y[sample.1.predlocs[[j]]])
+  coords.pred[[2]][[j]]<-cbind.data.frame(x=grid.xy$x[sample.2.predlocs[[j]]],y=grid.xy$y[sample.2.predlocs[[j]]])
+  coords.pred[[3]][[j]]<-cbind.data.frame(x=grid.xy$x[sample.3.predlocs[[j]]],y=grid.xy$y[sample.3.predlocs[[j]]])
+  coords.pred[[4]][[j]]<-cbind.data.frame(x=grid.xy$x[sample.4.predlocs[[j]]],y=grid.xy$y[sample.4.predlocs[[j]]])
+  coords.pred[[5]][[j]]<-cbind.data.frame(x=grid.xy$x[sample.5.predlocs[[j]]],y=grid.xy$y[sample.5.predlocs[[j]]])
+  coords.pred[[6]][[j]]<-cbind.data.frame(x=grid.xy$x[sample.6.predlocs[[j]]],y=grid.xy$y[sample.6.predlocs[[j]]])
+  coords.pred[[7]][[j]]<-cbind.data.frame(x=grid.xy$x[sample.7.predlocs[[j]]],y=grid.xy$y[sample.7.predlocs[[j]]])
+  coords.pred[[8]][[j]]<-cbind.data.frame(x=grid.xy$x[sample.8.predlocs[[j]]],y=grid.xy$y[sample.8.predlocs[[j]]])
+  coords.pred[[9]][[j]]<-cbind.data.frame(x=grid.xy$x[sample.9.predlocs[[j]]],y=grid.xy$y[sample.9.predlocs[[j]]])
+  coords.pred[[10]][[j]]<-cbind.data.frame(x=grid.xy$x[sample.10.predlocs[[j]]],y=grid.xy$y[sample.10.predlocs[[j]]])
+}
+
+which.closest.sat.drone<-vector("list",10)
+which.closest.sat.pred.drone<-vector("list",10)
+for(i in 1:10){
+  which.closest.sat.drone[[i]]<-vector("list",10)
+  which.closest.sat.pred.drone[[i]]<-vector("list",10)
+  for(j in 1:10){
+    which.closest.sat.drone[[i]][[j]]<-numeric(nrow(coords.resp[[i]][[j]]))
+    for(k in 1:nrow(coords.resp[[i]][[j]])){which.closest.sat.drone[[i]][[j]][k]<-which.min(spDistsN1(cbind(grid.xy.sat$x,grid.xy.sat$y),as.numeric(coords.resp[[i]][[j]][k,])))}
+    which.closest.sat.pred.drone[[i]][[j]]<-numeric(nrow(coords.pred[[i]][[j]]))
+    for(k in 1:nrow(coords.pred[[i]][[j]])){which.closest.sat.pred.drone[[i]][[j]][k]<-which.min(spDistsN1(cbind(grid.xy.sat$x,grid.xy.sat$y),as.numeric(coords.pred[[i]][[j]][k,])))}
+  }
+}
+# which.closest.sat.drone[[10]]<-numeric(1000)
+# for(k in 1:1000){which.closest.sat.drone[[10]][k]<-which.min(spDistsN1(cbind(grid.xy.sat$x,grid.xy.sat$y),as.numeric(coords.resp[[10]][k,])))}
+# which.closest.sat.pred.drone[[10]]<-numeric(100)
+# for(k in 1:100){which.closest.sat.pred.drone[[10]][k]<-which.min(spDistsN1(cbind(grid.xy.sat$x,grid.xy.sat$y),as.numeric(coords.pred[[10]][k,])))}
+
+data.sat<-vector("list",10)
+data.sat.pred<-vector("list",10)
+for(i in 1:10){
+  data.sat[[i]]<-vector("list",10)
+  data.sat.pred[[i]]<-vector("list",10)
+  for(j in 1:10){
+    data.sat[[i]][[j]]<-simData2.sat.sd1[which.closest.sat.drone[[i]][[j]],]
+    data.sat.pred[[i]][[j]]<-simData2.sat.sd1[which.closest.sat.pred.drone[[i]][[j]],]
+  }
+}
+# data.sat[[10]]<-simData2.sat.sd1[which.closest.sat.drone[[10]],]
+# data.sat.pred[[10]]<-simData2.sat.sd1[which.closest.sat.pred.drone[[10]],]
+
+# # Model test run:
+# 
+# # For this, set phis = 0.1.
+# 
+# basis.list.bspline<-vector("list",length(seq.bspline))
+# for(i in 1:length(basis.list.bspline)){
+#   basis.list.bspline[[i]]<-create.bspline.basis(rangeval = c(min(dates.dec.sat),
+#                                                              max(dates.dec.sat)),
+#                                                 nbasis = seq.bspline[i])
+# }
+# 
+# 
+# eb.resp.bspline<-vector("list",length(seq.bspline))
+# eb.sat.bspline<-vector("list",length(seq.bspline))
+# eb.pred.bspline<-vector("list",length(seq.bspline))
+# for(i in 1:length(seq.bspline)){
+#   eb.resp.bspline[[i]]<-vector("list",100)
+#   for(j in 1:100){
+#     eb.resp.bspline[[i]][[j]]<-eval.basis(times.to.list(t(data.resp[[1]][[1]]),dates.dec.droneLocs)[[j]],basis.list.bspline[[i]])
+#   }
+#   eb.sat.bspline[[i]]<-eval.basis(dates.dec.sat,basis.list.bspline[[i]])
+#   eb.pred.bspline[[i]]<-eval.basis(dates.dec.5years,basis.list.bspline[[i]])
+# }
+# 
+# 
+# i<-1
+# model.test<-run.NSDmodel(nIter=10000,nBurnIn=100,nChains=2,nThin=10,
+#                          yData=matrix.to.list(t(data.resp[[10]][[1]])),
+#                          xData=t(data.sat[[10]][[1]]),
+#                          # xPred=t(data.sat.pred[[10]][[1]]),
+#                          xPred=t(data.sat.pred[[10]][[1]]),
+#                          coordsData=as.matrix(coords.resp[[10]][[1]]),
+#                          # coordsPred=as.matrix(coords.pred[[10]][[1]]),
+#                          coordsPred=as.matrix(coords.pred[[10]][[1]]),
+#                          By=eb.resp.bspline[[i]],
+#                          Bx=eb.sat.bspline[[i]],
+#                          ByPred=eb.pred.bspline[[i]],
+#                          phiAlpha=0.1, phiBeta=0.1,
+#                          aAlpha=2, bAlpha=1,
+#                          aBeta=2, bBeta=1,
+#                          aY=2, bY=1,
+#                          aC=2, bC=1,
+#                          aX=2, bX=1,
+#                          muD=rep(0, seq.bspline[i]),SigmaD=100*diag(seq.bspline[i]),
+#                          sigmaAlphaPrecInit=1.1, sigmaBetaPrecInit=1.2,
+#                          sigmaYPrecInit=1.10,
+#                          sigmaCPrecInit=1.4,
+#                          alphaInit=matrix(0, nrow = seq.bspline[i], ncol = 100),
+#                          betaInit=matrix(0.4, nrow = seq.bspline[i], ncol = 100),
+#                          cInit=matrix(0.5, nrow = seq.bspline[i], ncol = 100),
+#                          sigmaXPrecInit=1.5,
+#                          dInit=matrix(0.6, nrow = seq.bspline[i], ncol = 100))
+# summary.model.test<-summary(model.test)
+# dim(summary.model.test$quantiles)
+# tail(summary.model.test$quantiles)
+# 
+# pred.mat.model.test<-matrix(summary.model.test$quantiles[nrow(summary.model.test$quantiles)-((600-1):0),3],nrow=60,ncol=10)
+# lwrbnd.mat.model.test<-matrix(summary.model.test$quantiles[nrow(summary.model.test$quantiles)-((600-1):0),1],nrow=60,ncol=10)
+# uprbnd.mat.model.test<-matrix(summary.model.test$quantiles[nrow(summary.model.test$quantiles)-((600-1):0),5],nrow=60,ncol=10)
+# 
+# plot(as.numeric(pred.mat.model.test),as.numeric(t(data.pred[[10]][[1]])));abline(0,1)
+# cor(as.numeric(pred.mat.model.test),as.numeric(t(data.pred[[10]][[1]])))
+# rmse(as.numeric(pred.mat.model.test),as.numeric(t(data.pred[[10]][[1]])))
+# 
+# par(mfrow=c(3,4))
+# plot(pred.mat.model.test[,1],t(data.pred[[10]][[1]])[,1]);abline(0,1)
+# plot(pred.mat.model.test[,2],t(data.pred[[10]][[1]])[,2]);abline(0,1)
+# plot(pred.mat.model.test[,3],t(data.pred[[10]][[1]])[,3]);abline(0,1)
+# plot(pred.mat.model.test[,4],t(data.pred[[10]][[1]])[,4]);abline(0,1)
+# plot(pred.mat.model.test[,5],t(data.pred[[10]][[1]])[,5]);abline(0,1)
+# plot(pred.mat.model.test[,6],t(data.pred[[10]][[1]])[,6]);abline(0,1)
+# plot(pred.mat.model.test[,7],t(data.pred[[10]][[1]])[,7]);abline(0,1)
+# plot(pred.mat.model.test[,8],t(data.pred[[10]][[1]])[,8]);abline(0,1)
+# plot(pred.mat.model.test[,9],t(data.pred[[10]][[1]])[,9]);abline(0,1)
+# plot(pred.mat.model.test[,10],t(data.pred[[10]][[1]])[,10]);abline(0,1)
+# par(mfrow=c(1,1))
+# 
+# par(mfrow=c(3,4))
+# plot(pred.mat.model.test[1,],t(data.pred[[10]][[1]])[1,]);abline(0,1)
+# plot(pred.mat.model.test[2,],t(data.pred[[10]][[1]])[2,]);abline(0,1)
+# plot(pred.mat.model.test[3,],t(data.pred[[10]][[1]])[3,]);abline(0,1)
+# plot(pred.mat.model.test[4,],t(data.pred[[10]][[1]])[4,]);abline(0,1)
+# plot(pred.mat.model.test[5,],t(data.pred[[10]][[1]])[5,]);abline(0,1)
+# plot(pred.mat.model.test[6,],t(data.pred[[10]][[1]])[6,]);abline(0,1)
+# plot(pred.mat.model.test[7,],t(data.pred[[10]][[1]])[7,]);abline(0,1)
+# par(mfrow=c(1,1))
+# 
+# par(mfrow=c(3,4))
+# for(i in 1:10){
+#   plot(t(data.pred[[10]][[1]])[,i]~dates.dec.5years,type="o")
+#   lines(pred.mat.model.test[,i]~dates.dec.5years,col=2)
+# }
+# par(mfrow=c(1,1))
+# 
+# # Test with higher basis dimension:
+# 
+# i<-10
+# model.test.2<-run.NSDmodel(nIter=10000,nBurnIn=100,nChains=2,nThin=10,
+#                          yData=matrix.to.list(t(data.resp[[10]][[1]])),
+#                          xData=t(data.sat[[10]][[1]]),
+#                          # xPred=t(data.sat.pred[[10]][[1]]),
+#                          xPred=t(data.sat.pred[[10]][[1]]),
+#                          coordsData=as.matrix(coords.resp[[10]][[1]]),
+#                          # coordsPred=as.matrix(coords.pred[[10]][[1]]),
+#                          coordsPred=as.matrix(coords.pred[[10]][[1]]),
+#                          By=eb.resp.bspline[[i]],
+#                          Bx=eb.sat.bspline[[i]],
+#                          ByPred=eb.pred.bspline[[i]],
+#                          phiAlpha=0.1, phiBeta=0.1,
+#                          aAlpha=2, bAlpha=1,
+#                          aBeta=2, bBeta=1,
+#                          aY=2, bY=1,
+#                          aC=2, bC=1,
+#                          aX=2, bX=1,
+#                          muD=rep(0, seq.bspline[i]),SigmaD=100*diag(seq.bspline[i]),
+#                          sigmaAlphaPrecInit=1.1, sigmaBetaPrecInit=1.2,
+#                          sigmaYPrecInit=1.10,
+#                          sigmaCPrecInit=1.4,
+#                          alphaInit=matrix(0, nrow = seq.bspline[i], ncol = 100),
+#                          betaInit=matrix(0.4, nrow = seq.bspline[i], ncol = 100),
+#                          cInit=matrix(0.5, nrow = seq.bspline[i], ncol = 100),
+#                          sigmaXPrecInit=1.5,
+#                          dInit=matrix(0.6, nrow = seq.bspline[i], ncol = 100))
+# summary.model.test.2<-summary(model.test.2)
+# dim(summary.model.test.2$quantiles)
+# tail(summary.model.test.2$quantiles)
+# 
+# pred.mat.model.test.2<-matrix(summary.model.test.2$quantiles[nrow(summary.model.test.2$quantiles)-((600-1):0),3],nrow=60,ncol=10)
+# lwrbnd.mat.model.test.2<-matrix(summary.model.test.2$quantiles[nrow(summary.model.test.2$quantiles)-((600-1):0),1],nrow=60,ncol=10)
+# uprbnd.mat.model.test.2<-matrix(summary.model.test.2$quantiles[nrow(summary.model.test.2$quantiles)-((600-1):0),5],nrow=60,ncol=10)
+# 
+# plot(as.numeric(pred.mat.model.test.2),as.numeric(t(data.pred[[10]][[1]])));abline(0,1)
+# cor(as.numeric(pred.mat.model.test.2),as.numeric(t(data.pred[[10]][[1]])))
+# rmse(as.numeric(pred.mat.model.test.2),as.numeric(t(data.pred[[10]][[1]])))
+# 
+# par(mfrow=c(3,4))
+# plot(pred.mat.model.test.2[,1],t(data.pred[[10]][[1]])[,1]);abline(0,1)
+# plot(pred.mat.model.test.2[,2],t(data.pred[[10]][[1]])[,2]);abline(0,1)
+# plot(pred.mat.model.test.2[,3],t(data.pred[[10]][[1]])[,3]);abline(0,1)
+# plot(pred.mat.model.test.2[,4],t(data.pred[[10]][[1]])[,4]);abline(0,1)
+# plot(pred.mat.model.test.2[,5],t(data.pred[[10]][[1]])[,5]);abline(0,1)
+# plot(pred.mat.model.test.2[,6],t(data.pred[[10]][[1]])[,6]);abline(0,1)
+# plot(pred.mat.model.test.2[,7],t(data.pred[[10]][[1]])[,7]);abline(0,1)
+# plot(pred.mat.model.test.2[,8],t(data.pred[[10]][[1]])[,8]);abline(0,1)
+# plot(pred.mat.model.test.2[,9],t(data.pred[[10]][[1]])[,9]);abline(0,1)
+# plot(pred.mat.model.test.2[,10],t(data.pred[[10]][[1]])[,10]);abline(0,1)
+# par(mfrow=c(1,1))
+# 
+# par(mfrow=c(3,4))
+# plot(pred.mat.model.test.2[1,],t(data.pred[[10]][[1]])[1,]);abline(0,1)
+# plot(pred.mat.model.test.2[2,],t(data.pred[[10]][[1]])[2,]);abline(0,1)
+# plot(pred.mat.model.test.2[3,],t(data.pred[[10]][[1]])[3,]);abline(0,1)
+# plot(pred.mat.model.test.2[4,],t(data.pred[[10]][[1]])[4,]);abline(0,1)
+# plot(pred.mat.model.test.2[5,],t(data.pred[[10]][[1]])[5,]);abline(0,1)
+# plot(pred.mat.model.test.2[6,],t(data.pred[[10]][[1]])[6,]);abline(0,1)
+# plot(pred.mat.model.test.2[7,],t(data.pred[[10]][[1]])[7,]);abline(0,1)
+# par(mfrow=c(1,1))
+# 
+# par(mfrow=c(3,4))
+# for(i in 1:10){
+#   plot(t(data.pred[[10]][[1]])[,i]~dates.dec.5years,type="o",ylim=c(min(c(t(data.pred[[10]][[1]])[,i],pred.mat.model.test.2[,i])),max(c(t(data.pred[[10]][[1]])[,i],pred.mat.model.test.2[,i]))))
+#   lines(pred.mat.model.test.2[,i]~dates.dec.5years,col=2)
+# }
+# par(mfrow=c(1,1))
+
+# Model runs to get optimal values of basis.seq:
+
+# pred.mat.model.basis.seq<-vector("list",10)
+# lwrbnd.mat.model.basis.seq<-vector("list",10)
+# uprbnd.mat.model.basis.seq<-vector("list",10)
+# cor.model.basis.seq<-vector("list",10)
+# rmse.model.basis.seq<-vector("list",10)
+# for(j in 1:10){
+#   pred.mat.model.basis.seq[[j]]<-vector("list",12)
+#   lwrbnd.mat.model.basis.seq[[j]]<-vector("list",12)
+#   uprbnd.mat.model.basis.seq[[j]]<-vector("list",12)
+#   cor.model.basis.seq[[j]]<-numeric(12)
+#   rmse.model.basis.seq[[j]]<-numeric(12)
+#   for(i in 1:12){ # probably don't want to run for all of seq.bspline, since few time points of drone data.
+#     model.test<-run.NSDmodel(nIter=10000,nBurnIn=100,nChains=2,nThin=10,
+#                              yData=matrix.to.list(t(data.resp[[10]][[j]])),
+#                              xData=t(data.sat[[10]][[j]]),
+#                              # xPred=t(data.sat.pred[[10]][[j]]),
+#                              xPred=t(data.sat.pred[[10]][[j]]),
+#                              coordsData=as.matrix(coords.resp[[10]][[j]]),
+#                              # coordsPred=as.matrix(coords.pred[[10]][[j]]),
+#                              coordsPred=as.matrix(coords.pred[[10]][[j]]),
+#                              By=eb.resp.bspline[[i]],
+#                              Bx=eb.sat.bspline[[i]],
+#                              ByPred=eb.pred.bspline[[i]],
+#                              phiAlpha=0.1, phiBeta=0.1,
+#                              aAlpha=2, bAlpha=1,
+#                              aBeta=2, bBeta=1,
+#                              aY=2, bY=1,
+#                              aC=2, bC=1,
+#                              aX=2, bX=1,
+#                              muD=rep(0, seq.bspline[i]),SigmaD=100*diag(seq.bspline[i]),
+#                              sigmaAlphaPrecInit=1.1, sigmaBetaPrecInit=1.2,
+#                              sigmaYPrecInit=1.10,
+#                              sigmaCPrecInit=1.4,
+#                              alphaInit=matrix(0, nrow = seq.bspline[i], ncol = 100),
+#                              betaInit=matrix(0.4, nrow = seq.bspline[i], ncol = 100),
+#                              cInit=matrix(0.5, nrow = seq.bspline[i], ncol = 100),
+#                              sigmaXPrecInit=1.5,
+#                              dInit=matrix(0.6, nrow = seq.bspline[i], ncol = 100))
+#     summary.model.test<-summary(model.test)
+# 
+#     pred.mat.model.basis.seq[[j]][[i]]<-matrix(summary.model.test$quantiles[nrow(summary.model.test$quantiles)-((600-1):0),3],nrow=60,ncol=10)
+#     lwrbnd.mat.model.basis.seq[[j]][[i]]<-matrix(summary.model.test$quantiles[nrow(summary.model.test$quantiles)-((600-1):0),1],nrow=60,ncol=10)
+#     uprbnd.mat.model.basis.seq[[j]][[i]]<-matrix(summary.model.test$quantiles[nrow(summary.model.test$quantiles)-((600-1):0),5],nrow=60,ncol=10)
+#     
+#     cor.model.basis.seq[[j]][i]<-cor(as.numeric(pred.mat.model.basis.seq[[j]][[i]]),as.numeric(t(data.pred[[10]][[j]])))
+#     rmse.model.basis.seq[[j]][i]<-rmse(as.numeric(pred.mat.model.basis.seq[[j]][[i]]),as.numeric(t(data.pred[[10]][[j]])))
+# 
+#     print(c(i,j,Sys.time()))
+#   }
+# }
+# save(pred.mat.model.basis.seq,file="C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/pred_mat_model_basis_seq.RData")
+# save(lwrbnd.mat.model.basis.seq,file="C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/lwrbnd_mat_model_basis_seq.RData")
+# save(uprbnd.mat.model.basis.seq,file="C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/uprbnd_mat_model_basis_seq.RData")
+# save(cor.model.basis.seq,file="C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/cor_model_basis_seq.RData")
+# save(rmse.model.basis.seq,file="C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/rmse_model_basis_seq.RData")
+
+load("C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/pred_mat_model_basis_seq.RData")
+load("C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/lwrbnd_mat_model_basis_seq.RData")
+load("C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/uprbnd_mat_model_basis_seq.RData")
+load("C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/cor_model_basis_seq.RData")
+load("C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/rmse_model_basis_seq.RData")
+
+cor.model.basis.seq
+rmse.model.basis.seq
+
+plot(rmse.model.basis.seq[[1]]~seq.bspline[1:12],type="n",ylim=c(min(unlist(rmse.model.basis.seq)),max(unlist(rmse.model.basis.seq))))
+for(i in 1:10){
+  points(rmse.model.basis.seq[[i]]~seq.bspline[1:12],pch=i,col=i,type="o")
+  points(rmse.model.basis.seq[[i]][which.min(rmse.model.basis.seq[[i]])]~seq.bspline[which.min(rmse.model.basis.seq[[i]])],pch=16)
+}
+
+# There isn't a single basis dimension that appears most appropriate, but some seem inappropriate, e.g. 12, 15, 16.
+
+rmse.model.basis.seq.all<-numeric(12)
+pred.for.rmse.model.basis.seq.all<-vector("list",12)
+for(i in 1:12){
+  pred.for.rmse.model.basis.seq.all[[i]]<-c(t(pred.mat.model.basis.seq[[1]][[i]]),t(pred.mat.model.basis.seq[[2]][[i]]),t(pred.mat.model.basis.seq[[3]][[i]]),
+                                            t(pred.mat.model.basis.seq[[4]][[i]]),t(pred.mat.model.basis.seq[[5]][[i]]),t(pred.mat.model.basis.seq[[6]][[i]]),
+                                            t(pred.mat.model.basis.seq[[7]][[i]]),t(pred.mat.model.basis.seq[[8]][[i]]),t(pred.mat.model.basis.seq[[9]][[i]]),
+                                            t(pred.mat.model.basis.seq[[10]][[i]]))
+  rmse.model.basis.seq.all[i]<-rmse(pred.for.rmse.model.basis.seq.all[[i]],unlist(data.pred[[10]]))
+}
+
+plot(rmse.model.basis.seq.all~seq.bspline[1:12],type="o")
+seq.bspline[which.min(rmse.model.basis.seq.all)] # 13
+
+# Going with 13, investigating optimal phi values:
+
+seq.phi<-c(0.0001,0.001,0.01,0.1)
+
+# pred.mat.model.phi.seq<-vector("list",10)
+# lwrbnd.mat.model.phi.seq<-vector("list",10)
+# uprbnd.mat.model.phi.seq<-vector("list",10)
+# cor.model.phi.seq<-vector("list",10)
+# rmse.model.phi.seq<-vector("list",10)
+# for(j in 1:10){
+#   pred.mat.model.phi.seq[[j]]<-vector("list",length(seq.phi))
+#   lwrbnd.mat.model.phi.seq[[j]]<-vector("list",length(seq.phi))
+#   uprbnd.mat.model.phi.seq[[j]]<-vector("list",length(seq.phi))
+#   cor.model.phi.seq[[j]]<-matrix(ncol=length(seq.phi),nrow=length(seq.phi))
+#   rmse.model.phi.seq[[j]]<-matrix(ncol=length(seq.phi),nrow=length(seq.phi))
+#   for(i in 1:length(seq.phi)){
+#     pred.mat.model.phi.seq[[j]][[i]]<-vector("list",length(seq.phi))
+#     lwrbnd.mat.model.phi.seq[[j]][[i]]<-vector("list",length(seq.phi))
+#     uprbnd.mat.model.phi.seq[[j]][[i]]<-vector("list",length(seq.phi))
+#     for(k in 1:length(seq.phi)){
+#       model.test<-run.NSDmodel(nIter=10000,nBurnIn=100,nChains=2,nThin=10,
+#                                yData=matrix.to.list(t(data.resp[[10]][[j]])),
+#                                xData=t(data.sat[[10]][[j]]),
+#                                xPred=t(data.sat.pred[[10]][[j]]),
+#                                coordsData=as.matrix(coords.resp[[10]][[j]]),
+#                                coordsPred=as.matrix(coords.pred[[10]][[j]]),
+#                                By=eb.resp.bspline[[which(seq.bspline==13)]],
+#                                Bx=eb.sat.bspline[[which(seq.bspline==13)]],
+#                                ByPred=eb.pred.bspline[[which(seq.bspline==13)]],
+#                                phiAlpha=seq.phi[i], phiBeta=seq.phi[k],
+#                                aAlpha=2, bAlpha=1,
+#                                aBeta=2, bBeta=1,
+#                                aY=2, bY=1,
+#                                aC=2, bC=1,
+#                                aX=2, bX=1,
+#                                muD=rep(0, seq.bspline[which(seq.bspline==13)]),SigmaD=100*diag(seq.bspline[which(seq.bspline==13)]),
+#                                sigmaAlphaPrecInit=1.1, sigmaBetaPrecInit=1.2,
+#                                sigmaYPrecInit=1.10,
+#                                sigmaCPrecInit=1.4,
+#                                alphaInit=matrix(0, nrow = seq.bspline[which(seq.bspline==13)], ncol = 100),
+#                                betaInit=matrix(0.4, nrow = seq.bspline[which(seq.bspline==13)], ncol = 100),
+#                                cInit=matrix(0.5, nrow = seq.bspline[which(seq.bspline==13)], ncol = 100),
+#                                sigmaXPrecInit=1.5,
+#                                dInit=matrix(0.6, nrow = seq.bspline[which(seq.bspline==13)], ncol = 100))
+#       summary.model.test<-summary(model.test)
+#       dim(summary.model.test$quantiles)
+#       tail(summary.model.test$quantiles)
+#       
+#       pred.mat.model.phi.seq[[j]][[i]][[k]]<-matrix(summary.model.test$quantiles[nrow(summary.model.test$quantiles)-((600-1):0),3],nrow=60,ncol=10)
+#       lwrbnd.mat.model.phi.seq[[j]][[i]][[k]]<-matrix(summary.model.test$quantiles[nrow(summary.model.test$quantiles)-((600-1):0),1],nrow=60,ncol=10)
+#       uprbnd.mat.model.phi.seq[[j]][[i]][[k]]<-matrix(summary.model.test$quantiles[nrow(summary.model.test$quantiles)-((600-1):0),5],nrow=60,ncol=10)
+#       
+#       cor.model.phi.seq[[j]][i,k]<-cor(as.numeric(pred.mat.model.phi.seq[[j]][[i]][[k]]),as.numeric(t(data.pred[[10]][[j]])))
+#       rmse.model.phi.seq[[j]][i,k]<-rmse(as.numeric(pred.mat.model.phi.seq[[j]][[i]][[k]]),as.numeric(t(data.pred[[10]][[j]])))
+#       
+#       print(c(i,j,k,Sys.time()))
+#     }
+#   }
+# }
+# save(pred.mat.model.phi.seq,file="C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/pred_mat_model_phi_seq.RData")
+# save(lwrbnd.mat.model.phi.seq,file="C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/lwrbnd_mat_model_phi_seq.RData")
+# save(uprbnd.mat.model.phi.seq,file="C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/uprbnd_mat_model_phi_seq.RData")
+# save(cor.model.phi.seq,file="C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/cor_model_phi_seq.RData")
+# save(rmse.model.phi.seq,file="C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/rmse_model_phi_seq.RData")
+
+load("C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/pred_mat_model_phi_seq.RData")
+load("C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/lwrbnd_mat_model_phi_seq.RData")
+load("C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/uprbnd_mat_model_phi_seq.RData")
+load("C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/cor_model_phi_seq.RData")
+load("C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/rmse_model_phi_seq.RData")
+
+rmse.model.phi.seq[[1]]
+image(rmse.model.phi.seq[[1]],xaxt="n",yaxt="n");box();axis(1,at=seq(0,1,length.out = 4),labels = seq.phi);axis(2,at=seq(0,1,length.out = 4),labels = seq.phi)
+
+# Looks like any combination of 0.001 and 0.0001 result in low values of RMSE. Let's go with 0.0001 and 0.0001 for the values of phi_alpha and phi_beta.
+
+# Wackernagel (2003): practical range of exponential covariance function is 3/phi (where covariance function is exp(-phi*distance)), since the covariance
+# function has decreased by 95% of its value at the origin for this value.
+
+3/seq.phi
+# 30000  3000   300    30
+
+#... so practical range = 30,000 is quite high compared to the maximum distance of approximately 50,000 in the data.
+
+### Running the model: ###########################
+
+# pred.mat.model.final<-vector("list",10)
+# lwrbnd.mat.model.final<-vector("list",10)
+# uprbnd.mat.model.final<-vector("list",10)
+# cor.model.final<-matrix(nrow=10,ncol=10)
+# rmse.model.final<-matrix(nrow=10,ncol=10)
+# for(i in 1:10){
+#   pred.mat.model.final[[i]]<-vector("list",10)
+#   lwrbnd.mat.model.final[[i]]<-vector("list",10)
+#   uprbnd.mat.model.final[[i]]<-vector("list",10)
+#   for(j in 1:10){
+#       model.test<-run.NSDmodel(nIter=10000,nBurnIn=100,nChains=2,nThin=10,
+#                                yData=matrix.to.list(t(data.resp[[i]][[j]])),
+#                                xData=t(data.sat[[i]][[j]]),
+#                                xPred=t(data.sat.pred[[i]][[j]]),
+#                                coordsData=as.matrix(coords.resp[[i]][[j]]),
+#                                coordsPred=as.matrix(coords.pred[[i]][[j]]),
+#                                By=eb.resp.bspline[[which(seq.bspline==13)]],
+#                                Bx=eb.sat.bspline[[which(seq.bspline==13)]],
+#                                ByPred=eb.pred.bspline[[which(seq.bspline==13)]],
+#                                phiAlpha=0.0001, phiBeta=0.0001,
+#                                aAlpha=2, bAlpha=1,
+#                                aBeta=2, bBeta=1,
+#                                aY=2, bY=1,
+#                                aC=2, bC=1,
+#                                aX=2, bX=1,
+#                                muD=rep(0, seq.bspline[which(seq.bspline==13)]),SigmaD=100*diag(seq.bspline[which(seq.bspline==13)]),
+#                                sigmaAlphaPrecInit=1.1, sigmaBetaPrecInit=1.2,
+#                                sigmaYPrecInit=1.10,
+#                                sigmaCPrecInit=1.4,
+#                                alphaInit=matrix(0, nrow = seq.bspline[which(seq.bspline==13)], ncol = 100),
+#                                betaInit=matrix(0.4, nrow = seq.bspline[which(seq.bspline==13)], ncol = 100),
+#                                cInit=matrix(0.5, nrow = seq.bspline[which(seq.bspline==13)], ncol = 100),
+#                                sigmaXPrecInit=1.5,
+#                                dInit=matrix(0.6, nrow = seq.bspline[which(seq.bspline==13)], ncol = 100))
+#       summary.model.test<-summary(model.test)
+#       dim(summary.model.test$quantiles)
+#       tail(summary.model.test$quantiles)
+# 
+#       pred.mat.model.final[[i]][[j]]<-matrix(summary.model.test$quantiles[nrow(summary.model.test$quantiles)-((600-1):0),3],nrow=60,ncol=10)
+#       lwrbnd.mat.model.final[[i]][[j]]<-matrix(summary.model.test$quantiles[nrow(summary.model.test$quantiles)-((600-1):0),1],nrow=60,ncol=10)
+#       uprbnd.mat.model.final[[i]][[j]]<-matrix(summary.model.test$quantiles[nrow(summary.model.test$quantiles)-((600-1):0),5],nrow=60,ncol=10)
+# 
+#       cor.model.final[i,j]<-cor(as.numeric(pred.mat.model.final[[i]][[j]]),as.numeric(t(data.pred[[i]][[j]])))
+#       rmse.model.final[i,j]<-rmse(as.numeric(pred.mat.model.final[[i]][[j]]),as.numeric(t(data.pred[[i]][[j]])))
+# 
+#       print(c(i,j,Sys.time()))
+#   }
+# }
+# save(pred.mat.model.final,file="C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/pred_mat_model_final.RData")
+# save(lwrbnd.mat.model.final,file="C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/lwrbnd_mat_model_final.RData")
+# save(uprbnd.mat.model.final,file="C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/uprbnd_mat_model_final.RData")
+# save(cor.model.final,file="C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/cor_model_final.RData")
+# save(rmse.model.final,file="C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/rmse_model_final.RData")
+
+load("C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/pred_mat_model_final.RData")
+load("C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/lwrbnd_mat_model_final.RData")
+load("C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/uprbnd_mat_model_final.RData")
+load("C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/cor_model_final.RData")
+load("C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/rmse_model_final.RData")
+
+# sd2 for satellite data:
+
+data.sat.sd2<-vector("list",10)
+data.sat.pred.sd2<-vector("list",10)
+for(i in 1:10){
+  data.sat.sd2[[i]]<-vector("list",10)
+  data.sat.pred.sd2[[i]]<-vector("list",10)
+  for(j in 1:10){
+    data.sat.sd2[[i]][[j]]<-simData.sat.sd2[which.closest.sat.drone[[i]][[j]],]
+    data.sat.pred.sd2[[i]][[j]]<-simData.sat.sd2[which.closest.sat.pred.drone[[i]][[j]],]
+  }
+}
+
+# pred.mat.model.final.sd2<-vector("list",10)
+# lwrbnd.mat.model.final.sd2<-vector("list",10)
+# uprbnd.mat.model.final.sd2<-vector("list",10)
+# cor.model.final.sd2<-matrix(nrow=10,ncol=10)
+# rmse.model.final.sd2<-matrix(nrow=10,ncol=10)
+# for(i in 1:10){
+#   pred.mat.model.final.sd2[[i]]<-vector("list",10)
+#   lwrbnd.mat.model.final.sd2[[i]]<-vector("list",10)
+#   uprbnd.mat.model.final.sd2[[i]]<-vector("list",10)
+#   for(j in 1:10){
+#       model.test<-run.NSDmodel(nIter=10000,nBurnIn=100,nChains=2,nThin=10,
+#                                yData=matrix.to.list(t(data.resp[[i]][[j]])),
+#                                xData=t(data.sat.sd2[[i]][[j]]),
+#                                xPred=t(data.sat.pred.sd2[[i]][[j]]),
+#                                coordsData=as.matrix(coords.resp[[i]][[j]]),
+#                                coordsPred=as.matrix(coords.pred[[i]][[j]]),
+#                                By=eb.resp.bspline[[which(seq.bspline==13)]],
+#                                Bx=eb.sat.bspline[[which(seq.bspline==13)]],
+#                                ByPred=eb.pred.bspline[[which(seq.bspline==13)]],
+#                                phiAlpha=0.0001, phiBeta=0.0001,
+#                                aAlpha=2, bAlpha=1,
+#                                aBeta=2, bBeta=1,
+#                                aY=2, bY=1,
+#                                aC=2, bC=1,
+#                                aX=2, bX=1,
+#                                muD=rep(0, seq.bspline[which(seq.bspline==13)]),SigmaD=100*diag(seq.bspline[which(seq.bspline==13)]),
+#                                sigmaAlphaPrecInit=1.1, sigmaBetaPrecInit=1.2,
+#                                sigmaYPrecInit=1.10,
+#                                sigmaCPrecInit=1.4,
+#                                alphaInit=matrix(0, nrow = seq.bspline[which(seq.bspline==13)], ncol = 100),
+#                                betaInit=matrix(0.4, nrow = seq.bspline[which(seq.bspline==13)], ncol = 100),
+#                                cInit=matrix(0.5, nrow = seq.bspline[which(seq.bspline==13)], ncol = 100),
+#                                sigmaXPrecInit=1.5,
+#                                dInit=matrix(0.6, nrow = seq.bspline[which(seq.bspline==13)], ncol = 100))
+#       summary.model.test<-summary(model.test)
+#       dim(summary.model.test$quantiles)
+#       tail(summary.model.test$quantiles)
+# 
+#       pred.mat.model.final.sd2[[i]][[j]]<-matrix(summary.model.test$quantiles[nrow(summary.model.test$quantiles)-((600-1):0),3],nrow=60,ncol=10)
+#       lwrbnd.mat.model.final.sd2[[i]][[j]]<-matrix(summary.model.test$quantiles[nrow(summary.model.test$quantiles)-((600-1):0),1],nrow=60,ncol=10)
+#       uprbnd.mat.model.final.sd2[[i]][[j]]<-matrix(summary.model.test$quantiles[nrow(summary.model.test$quantiles)-((600-1):0),5],nrow=60,ncol=10)
+# 
+#       cor.model.final.sd2[i,j]<-cor(as.numeric(pred.mat.model.final.sd2[[i]][[j]]),as.numeric(t(data.pred[[i]][[j]])))
+#       rmse.model.final.sd2[i,j]<-rmse(as.numeric(pred.mat.model.final.sd2[[i]][[j]]),as.numeric(t(data.pred[[i]][[j]])))
+# 
+#       print(c(i,j,Sys.time()))
+#   }
+# }
+# save(pred.mat.model.final.sd2,file="C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/pred_mat_model_final_sd2.RData")
+# save(lwrbnd.mat.model.final.sd2,file="C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/lwrbnd_mat_model_final_sd2.RData")
+# save(uprbnd.mat.model.final.sd2,file="C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/uprbnd_mat_model_final_sd2.RData")
+# save(cor.model.final.sd2,file="C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/cor_model_final_sd2.RData")
+# save(rmse.model.final.sd2,file="C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/rmse_model_final_sd2.RData")
+
+load("C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/pred_mat_model_final_sd2.RData")
+load("C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/lwrbnd_mat_model_final_sd2.RData")
+load("C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/uprbnd_mat_model_final_sd2.RData")
+load("C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/cor_model_final_sd2.RData")
+load("C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/rmse_model_final_sd2.RData")
+
+# sd3 for satellite data:
+
+data.sat.sd3<-vector("list",10)
+data.sat.pred.sd3<-vector("list",10)
+for(i in 1:10){
+  data.sat.sd3[[i]]<-vector("list",10)
+  data.sat.pred.sd3[[i]]<-vector("list",10)
+  for(j in 1:10){
+    data.sat.sd3[[i]][[j]]<-simData.sat.sd3[which.closest.sat.drone[[i]][[j]],]
+    data.sat.pred.sd3[[i]][[j]]<-simData.sat.sd3[which.closest.sat.pred.drone[[i]][[j]],]
+  }
+}
+
+# pred.mat.model.final.sd3<-vector("list",10)
+# lwrbnd.mat.model.final.sd3<-vector("list",10)
+# uprbnd.mat.model.final.sd3<-vector("list",10)
+# cor.model.final.sd3<-matrix(nrow=10,ncol=10)
+# rmse.model.final.sd3<-matrix(nrow=10,ncol=10)
+# for(i in 1:10){
+#   pred.mat.model.final.sd3[[i]]<-vector("list",10)
+#   lwrbnd.mat.model.final.sd3[[i]]<-vector("list",10)
+#   uprbnd.mat.model.final.sd3[[i]]<-vector("list",10)
+#   for(j in 1:10){
+#       model.test<-run.NSDmodel(nIter=10000,nBurnIn=100,nChains=2,nThin=10,
+#                                yData=matrix.to.list(t(data.resp[[i]][[j]])),
+#                                xData=t(data.sat.sd3[[i]][[j]]),
+#                                xPred=t(data.sat.pred.sd3[[i]][[j]]),
+#                                coordsData=as.matrix(coords.resp[[i]][[j]]),
+#                                coordsPred=as.matrix(coords.pred[[i]][[j]]),
+#                                By=eb.resp.bspline[[which(seq.bspline==13)]],
+#                                Bx=eb.sat.bspline[[which(seq.bspline==13)]],
+#                                ByPred=eb.pred.bspline[[which(seq.bspline==13)]],
+#                                phiAlpha=0.0001, phiBeta=0.0001,
+#                                aAlpha=2, bAlpha=1,
+#                                aBeta=2, bBeta=1,
+#                                aY=2, bY=1,
+#                                aC=2, bC=1,
+#                                aX=2, bX=1,
+#                                muD=rep(0, seq.bspline[which(seq.bspline==13)]),SigmaD=100*diag(seq.bspline[which(seq.bspline==13)]),
+#                                sigmaAlphaPrecInit=1.1, sigmaBetaPrecInit=1.2,
+#                                sigmaYPrecInit=1.10,
+#                                sigmaCPrecInit=1.4,
+#                                alphaInit=matrix(0, nrow = seq.bspline[which(seq.bspline==13)], ncol = 100),
+#                                betaInit=matrix(0.4, nrow = seq.bspline[which(seq.bspline==13)], ncol = 100),
+#                                cInit=matrix(0.5, nrow = seq.bspline[which(seq.bspline==13)], ncol = 100),
+#                                sigmaXPrecInit=1.5,
+#                                dInit=matrix(0.6, nrow = seq.bspline[which(seq.bspline==13)], ncol = 100))
+#       summary.model.test<-summary(model.test)
+#       dim(summary.model.test$quantiles)
+#       tail(summary.model.test$quantiles)
+# 
+#       pred.mat.model.final.sd3[[i]][[j]]<-matrix(summary.model.test$quantiles[nrow(summary.model.test$quantiles)-((600-1):0),3],nrow=60,ncol=10)
+#       lwrbnd.mat.model.final.sd3[[i]][[j]]<-matrix(summary.model.test$quantiles[nrow(summary.model.test$quantiles)-((600-1):0),1],nrow=60,ncol=10)
+#       uprbnd.mat.model.final.sd3[[i]][[j]]<-matrix(summary.model.test$quantiles[nrow(summary.model.test$quantiles)-((600-1):0),5],nrow=60,ncol=10)
+# 
+#       cor.model.final.sd3[i,j]<-cor(as.numeric(pred.mat.model.final.sd3[[i]][[j]]),as.numeric(t(data.pred[[i]][[j]])))
+#       rmse.model.final.sd3[i,j]<-rmse(as.numeric(pred.mat.model.final.sd3[[i]][[j]]),as.numeric(t(data.pred[[i]][[j]])))
+# 
+#       print(c(i,j,Sys.time()))
+#   }
+# }
+# save(pred.mat.model.final.sd3,file="C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/pred_mat_model_final_sd3.RData")
+# save(lwrbnd.mat.model.final.sd3,file="C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/lwrbnd_mat_model_final_sd3.RData")
+# save(uprbnd.mat.model.final.sd3,file="C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/uprbnd_mat_model_final_sd3.RData")
+# save(cor.model.final.sd3,file="C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/cor_model_final_sd3.RData")
+# save(rmse.model.final.sd3,file="C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/rmse_model_final_sd3.RData")
+
+load("C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/pred_mat_model_final_sd3.RData")
+load("C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/lwrbnd_mat_model_final_sd3.RData")
+load("C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/uprbnd_mat_model_final_sd3.RData")
+load("C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/cor_model_final_sd3.RData")
+load("C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/rmse_model_final_sd3.RData")
+
+library(fields)
+breaks.all<-seq(from=min(c(rmse.model.final,rmse.model.final.sd2,rmse.model.final.sd3)),to=max(c(rmse.model.final,rmse.model.final.sd2,rmse.model.final.sd3)),length.out=101)
+par(mfrow=c(2,2),mar=c(4,4.5,1.5,0.5))
+image.plot(rmse.model.final,col = hcl.colors(100, "YlOrRd", rev = TRUE),breaks = breaks.all,xaxt="n",yaxt="n",xlab="Number of drone regions",ylab="Replication",main=expression(paste(bold("Variance = 0.05")^bold("2"))),legend.shrink = 1,legend.width = 1);box();axis(1,at=seq(0,1,length.out=10),labels = 1:10);axis(2,at=seq(0,1,length.out=10),labels = 1:10)
+image.plot(rmse.model.final.sd2,col = hcl.colors(100, "YlOrRd", rev = TRUE),breaks = breaks.all,xaxt="n",yaxt="n",xlab="Number of drone regions",ylab="Replication",main=expression(paste(bold("Variance = 0.1")^bold("2"))),legend.shrink = 1,legend.width = 1);box();axis(1,at=seq(0,1,length.out=10),labels = 1:10);axis(2,at=seq(0,1,length.out=10),labels = 1:10)
+image.plot(rmse.model.final.sd3,col = hcl.colors(100, "YlOrRd", rev = TRUE),breaks = breaks.all,xaxt="n",yaxt="n",xlab="Number of drone regions",ylab="Replication",main=expression(paste(bold("Variance = 0.5")^bold("2"))),legend.shrink = 1,legend.width = 1);box();axis(1,at=seq(0,1,length.out=10),labels = 1:10);axis(2,at=seq(0,1,length.out=10),labels = 1:10)
+par(mfrow=c(1,1),mar=c(4,4.5,1,0.5))
+
+# Note: switch from [[i]][[1]] to [[i]][[2]] due to having 2 weirdly close coordinates in coords.pred[[1]][[1]] that make things more difficult to explain.
+
+min.1<-numeric(10);for(i in 1:10){min.1[[i]]<-min(lwrbnd.mat.model.final[[i]][[2]])}
+max.1<-numeric(10);for(i in 1:10){max.1[[i]]<-max(uprbnd.mat.model.final[[i]][[2]])}
+par(mfrow=c(4,3))
+par(mar=c(0,0,0,0))
+plot(0,1,xlab="",ylab="",xaxt="n",yaxt="n",bty="n",type="n");legend("center",legend = expression(bold("1 region")),bty="n")
+par(mar=c(4,4.5,1,0.5))
+for(i in 1:10){
+  plot(as.numeric(data.pred[[1]][[2]][i,])~dates.dec.5years,type="l",ylim=c(min(min.1),max(max.1)),xlab="Year",ylab="Value",bty="n")
+  points(pred.mat.model.final[[1]][[2]][,i]~dates.dec.5years,type="l",pch=16,col=2)
+  points(lwrbnd.mat.model.final[[1]][[2]][,i]~dates.dec.5years,type="l",lty=2,col=2)
+  points(uprbnd.mat.model.final[[1]][[2]][,i]~dates.dec.5years,type="l",lty=2,col=2)
+}
+par(mfrow=c(4,3))
+par(mar=c(0,0,0,0))
+plot(0,1,xlab="",ylab="",xaxt="n",yaxt="n",bty="n",type="n");legend("center",legend = expression(bold("2 regions")),bty="n")
+par(mar=c(4,4.5,1,0.5))
+for(i in 1:10){
+  plot(as.numeric(data.pred[[2]][[2]][i,])~dates.dec.5years,type="l",ylim=c(min(min.1),max(max.1)),xlab="Year",ylab="Value",bty="n")
+  points(pred.mat.model.final[[2]][[2]][,i]~dates.dec.5years,type="l",pch=16,col=2)
+  points(lwrbnd.mat.model.final[[2]][[2]][,i]~dates.dec.5years,type="l",lty=2,col=2)
+  points(uprbnd.mat.model.final[[2]][[2]][,i]~dates.dec.5years,type="l",lty=2,col=2)
+}
+par(mfrow=c(4,3))
+par(mar=c(0,0,0,0))
+plot(0,1,xlab="",ylab="",xaxt="n",yaxt="n",bty="n",type="n");legend("center",legend = expression(bold("3 regions")),bty="n")
+par(mar=c(4,4.5,1,0.5))
+for(i in 1:10){
+  plot(as.numeric(data.pred[[3]][[2]][i,])~dates.dec.5years,type="l",ylim=c(min(min.1),max(max.1)),xlab="Year",ylab="Value",bty="n")
+  points(pred.mat.model.final[[3]][[2]][,i]~dates.dec.5years,type="l",pch=16,col=2)
+  points(lwrbnd.mat.model.final[[3]][[2]][,i]~dates.dec.5years,type="l",lty=2,col=2)
+  points(uprbnd.mat.model.final[[3]][[2]][,i]~dates.dec.5years,type="l",lty=2,col=2)
+}
+par(mfrow=c(4,3))
+par(mar=c(0,0,0,0))
+plot(0,1,xlab="",ylab="",xaxt="n",yaxt="n",bty="n",type="n");legend("center",legend = expression(bold("4 regions")),bty="n")
+par(mar=c(4,4.5,1,0.5))
+for(i in 1:10){
+  plot(as.numeric(data.pred[[4]][[2]][i,])~dates.dec.5years,type="l",ylim=c(min(min.1),max(max.1)),xlab="Year",ylab="Value",bty="n")
+  points(pred.mat.model.final[[4]][[2]][,i]~dates.dec.5years,type="l",pch=16,col=2)
+  points(lwrbnd.mat.model.final[[4]][[2]][,i]~dates.dec.5years,type="l",lty=2,col=2)
+  points(uprbnd.mat.model.final[[4]][[2]][,i]~dates.dec.5years,type="l",lty=2,col=2)
+}
+par(mfrow=c(4,3))
+par(mar=c(0,0,0,0))
+plot(0,1,xlab="",ylab="",xaxt="n",yaxt="n",bty="n",type="n");legend("center",legend = expression(bold("5 regions")),bty="n")
+par(mar=c(4,4.5,1,0.5))
+for(i in 1:10){
+  plot(as.numeric(data.pred[[5]][[2]][i,])~dates.dec.5years,type="l",ylim=c(min(min.1),max(max.1)),xlab="Year",ylab="Value",bty="n")
+  points(pred.mat.model.final[[5]][[2]][,i]~dates.dec.5years,type="l",pch=16,col=2)
+  points(lwrbnd.mat.model.final[[5]][[2]][,i]~dates.dec.5years,type="l",lty=2,col=2)
+  points(uprbnd.mat.model.final[[5]][[2]][,i]~dates.dec.5years,type="l",lty=2,col=2)
+}
+par(mfrow=c(4,3))
+par(mar=c(0,0,0,0))
+plot(0,1,xlab="",ylab="",xaxt="n",yaxt="n",bty="n",type="n");legend("center",legend = expression(bold("6 regions")),bty="n")
+par(mar=c(4,4.5,1,0.5))
+for(i in 1:10){
+  plot(as.numeric(data.pred[[6]][[2]][i,])~dates.dec.5years,type="l",ylim=c(min(min.1),max(max.1)),xlab="Year",ylab="Value",bty="n")
+  points(pred.mat.model.final[[6]][[2]][,i]~dates.dec.5years,type="l",pch=16,col=2)
+  points(lwrbnd.mat.model.final[[6]][[2]][,i]~dates.dec.5years,type="l",lty=2,col=2)
+  points(uprbnd.mat.model.final[[6]][[2]][,i]~dates.dec.5years,type="l",lty=2,col=2)
+}
+par(mfrow=c(4,3))
+par(mar=c(0,0,0,0))
+plot(0,1,xlab="",ylab="",xaxt="n",yaxt="n",bty="n",type="n");legend("center",legend = expression(bold("7 regions")),bty="n")
+par(mar=c(4,4.5,1,0.5))
+for(i in 1:10){
+  plot(as.numeric(data.pred[[7]][[2]][i,])~dates.dec.5years,type="l",ylim=c(min(min.1),max(max.1)),xlab="Year",ylab="Value",bty="n")
+  points(pred.mat.model.final[[7]][[2]][,i]~dates.dec.5years,type="l",pch=16,col=2)
+  points(lwrbnd.mat.model.final[[7]][[2]][,i]~dates.dec.5years,type="l",lty=2,col=2)
+  points(uprbnd.mat.model.final[[7]][[2]][,i]~dates.dec.5years,type="l",lty=2,col=2)
+}
+par(mfrow=c(4,3))
+par(mar=c(0,0,0,0))
+plot(0,1,xlab="",ylab="",xaxt="n",yaxt="n",bty="n",type="n");legend("center",legend = expression(bold("8 regions")),bty="n")
+par(mar=c(4,4.5,1,0.5))
+for(i in 1:10){
+  plot(as.numeric(data.pred[[8]][[2]][i,])~dates.dec.5years,type="l",ylim=c(min(min.1),max(max.1)),xlab="Year",ylab="Value",bty="n")
+  points(pred.mat.model.final[[8]][[2]][,i]~dates.dec.5years,type="l",pch=16,col=2)
+  points(lwrbnd.mat.model.final[[8]][[2]][,i]~dates.dec.5years,type="l",lty=2,col=2)
+  points(uprbnd.mat.model.final[[8]][[2]][,i]~dates.dec.5years,type="l",lty=2,col=2)
+}
+par(mfrow=c(4,3))
+par(mar=c(0,0,0,0))
+plot(0,1,xlab="",ylab="",xaxt="n",yaxt="n",bty="n",type="n");legend("center",legend = expression(bold("9 regions")),bty="n")
+par(mar=c(4,4.5,1,0.5))
+for(i in 1:10){
+  plot(as.numeric(data.pred[[9]][[2]][i,])~dates.dec.5years,type="l",ylim=c(min(min.1),max(max.1)),xlab="Year",ylab="Value",bty="n")
+  points(pred.mat.model.final[[9]][[2]][,i]~dates.dec.5years,type="l",pch=16,col=2)
+  points(lwrbnd.mat.model.final[[9]][[2]][,i]~dates.dec.5years,type="l",lty=2,col=2)
+  points(uprbnd.mat.model.final[[9]][[2]][,i]~dates.dec.5years,type="l",lty=2,col=2)
+}
+par(mfrow=c(4,3))
+par(mar=c(0,0,0,0))
+plot(0,1,xlab="",ylab="",xaxt="n",yaxt="n",bty="n",type="n");legend("center",legend = expression(bold("10 regions")),bty="n")
+par(mar=c(4,4.5,1,0.5))
+for(i in 1:10){
+  plot(as.numeric(data.pred[[10]][[2]][i,])~dates.dec.5years,type="l",ylim=c(min(min.1),max(max.1)),xlab="Year",ylab="Value",bty="n")
+  points(pred.mat.model.final[[10]][[2]][,i]~dates.dec.5years,type="l",pch=16,col=2)
+  points(lwrbnd.mat.model.final[[10]][[2]][,i]~dates.dec.5years,type="l",lty=2,col=2)
+  points(uprbnd.mat.model.final[[10]][[2]][,i]~dates.dec.5years,type="l",lty=2,col=2)
+}
+
+par(mfrow=c(4,3))
+par(mar=c(0,0,0,0))
+plot(0,1,xlab="",ylab="",xaxt="n",yaxt="n",bty="n",type="n");legend("center",legend = expression(bold("(a) 1 region")),bty="n",cex=1.5)
+par(mar=c(4,4.5,1,0.5))
+for(i in 1:10){
+  plot(as.numeric(data.pred[[1]][[2]][i,])~dates.dec.5years,type="l",ylim=c(min(lwrbnd.mat.model.final[[1]][[2]]),max(uprbnd.mat.model.final[[1]][[2]])),xlab="Year",ylab="Value",bty="n")
+  points(pred.mat.model.final[[1]][[2]][,i]~dates.dec.5years,type="l",pch=16,col=2)
+  points(lwrbnd.mat.model.final[[1]][[2]][,i]~dates.dec.5years,type="l",lty=2,col=2)
+  points(uprbnd.mat.model.final[[1]][[2]][,i]~dates.dec.5years,type="l",lty=2,col=2)
+  mtext(paste(i,"."),at=2014.2,line=-0.5,cex = 0.75)
+}
+# save as C:\Users\craig\OneDrive - University of Glasgow\MDrive_partial_March2020\Ramganga\analysis\data_sim_June2020\
+# data_simulation_multiple_drone_sites_3\docfigs_pred1region.png at 700 by 550 pixels.
+par(mfrow=c(4,3))
+par(mar=c(0,0,0,0))
+plot(0,1,xlab="",ylab="",xaxt="n",yaxt="n",bty="n",type="n");legend("center",legend = expression(bold("2 regions")),bty="n")
+par(mar=c(4,4.5,1,0.5))
+for(i in 1:10){
+  plot(as.numeric(data.pred[[2]][[2]][i,])~dates.dec.5years,type="l",ylim=c(min(lwrbnd.mat.model.final[[2]][[2]]),max(uprbnd.mat.model.final[[2]][[2]])),xlab="Year",ylab="Value",bty="n")
+  points(pred.mat.model.final[[2]][[2]][,i]~dates.dec.5years,type="l",pch=16,col=2)
+  points(lwrbnd.mat.model.final[[2]][[2]][,i]~dates.dec.5years,type="l",lty=2,col=2)
+  points(uprbnd.mat.model.final[[2]][[2]][,i]~dates.dec.5years,type="l",lty=2,col=2)
+}
+par(mfrow=c(4,3))
+par(mar=c(0,0,0,0))
+plot(0,1,xlab="",ylab="",xaxt="n",yaxt="n",bty="n",type="n");legend("center",legend = expression(bold("3 regions")),bty="n")
+par(mar=c(4,4.5,1,0.5))
+for(i in 1:10){
+  plot(as.numeric(data.pred[[3]][[2]][i,])~dates.dec.5years,type="l",ylim=c(min(lwrbnd.mat.model.final[[3]][[2]]),max(uprbnd.mat.model.final[[3]][[2]])),xlab="Year",ylab="Value",bty="n")
+  points(pred.mat.model.final[[3]][[2]][,i]~dates.dec.5years,type="l",pch=16,col=2)
+  points(lwrbnd.mat.model.final[[3]][[2]][,i]~dates.dec.5years,type="l",lty=2,col=2)
+  points(uprbnd.mat.model.final[[3]][[2]][,i]~dates.dec.5years,type="l",lty=2,col=2)
+}
+par(mfrow=c(4,3))
+par(mar=c(0,0,0,0))
+plot(0,1,xlab="",ylab="",xaxt="n",yaxt="n",bty="n",type="n");legend("center",legend = expression(bold("4 regions")),bty="n")
+par(mar=c(4,4.5,1,0.5))
+for(i in 1:10){
+  plot(as.numeric(data.pred[[4]][[2]][i,])~dates.dec.5years,type="l",ylim=c(min(lwrbnd.mat.model.final[[4]][[2]]),max(uprbnd.mat.model.final[[4]][[2]])),xlab="Year",ylab="Value",bty="n")
+  points(pred.mat.model.final[[4]][[2]][,i]~dates.dec.5years,type="l",pch=16,col=2)
+  points(lwrbnd.mat.model.final[[4]][[2]][,i]~dates.dec.5years,type="l",lty=2,col=2)
+  points(uprbnd.mat.model.final[[4]][[2]][,i]~dates.dec.5years,type="l",lty=2,col=2)
+}
+par(mfrow=c(4,3))
+par(mar=c(0,0,0,0))
+plot(0,1,xlab="",ylab="",xaxt="n",yaxt="n",bty="n",type="n");legend("center",legend = expression(bold("5 regions")),bty="n")
+par(mar=c(4,4.5,1,0.5))
+for(i in 1:10){
+  plot(as.numeric(data.pred[[5]][[2]][i,])~dates.dec.5years,type="l",ylim=c(min(lwrbnd.mat.model.final[[5]][[2]]),max(uprbnd.mat.model.final[[5]][[2]])),xlab="Year",ylab="Value",bty="n")
+  points(pred.mat.model.final[[5]][[2]][,i]~dates.dec.5years,type="l",pch=16,col=2)
+  points(lwrbnd.mat.model.final[[5]][[2]][,i]~dates.dec.5years,type="l",lty=2,col=2)
+  points(uprbnd.mat.model.final[[5]][[2]][,i]~dates.dec.5years,type="l",lty=2,col=2)
+}
+par(mfrow=c(4,3))
+par(mar=c(0,0,0,0))
+plot(0,1,xlab="",ylab="",xaxt="n",yaxt="n",bty="n",type="n");legend("center",legend = expression(bold("6 regions")),bty="n")
+par(mar=c(4,4.5,1,0.5))
+for(i in 1:10){
+  plot(as.numeric(data.pred[[6]][[2]][i,])~dates.dec.5years,type="l",ylim=c(min(lwrbnd.mat.model.final[[6]][[2]]),max(uprbnd.mat.model.final[[6]][[2]])),xlab="Year",ylab="Value",bty="n")
+  points(pred.mat.model.final[[6]][[2]][,i]~dates.dec.5years,type="l",pch=16,col=2)
+  points(lwrbnd.mat.model.final[[6]][[2]][,i]~dates.dec.5years,type="l",lty=2,col=2)
+  points(uprbnd.mat.model.final[[6]][[2]][,i]~dates.dec.5years,type="l",lty=2,col=2)
+}
+par(mfrow=c(4,3))
+par(mar=c(0,0,0,0))
+plot(0,1,xlab="",ylab="",xaxt="n",yaxt="n",bty="n",type="n");legend("center",legend = expression(bold("7 regions")),bty="n")
+par(mar=c(4,4.5,1,0.5))
+for(i in 1:10){
+  plot(as.numeric(data.pred[[7]][[2]][i,])~dates.dec.5years,type="l",ylim=c(min(lwrbnd.mat.model.final[[7]][[2]]),max(uprbnd.mat.model.final[[7]][[2]])),xlab="Year",ylab="Value",bty="n")
+  points(pred.mat.model.final[[7]][[2]][,i]~dates.dec.5years,type="l",pch=16,col=2)
+  points(lwrbnd.mat.model.final[[7]][[2]][,i]~dates.dec.5years,type="l",lty=2,col=2)
+  points(uprbnd.mat.model.final[[7]][[2]][,i]~dates.dec.5years,type="l",lty=2,col=2)
+}
+par(mfrow=c(4,3))
+par(mar=c(0,0,0,0))
+plot(0,1,xlab="",ylab="",xaxt="n",yaxt="n",bty="n",type="n");legend("center",legend = expression(bold("8 regions")),bty="n")
+par(mar=c(4,4.5,1,0.5))
+for(i in 1:10){
+  plot(as.numeric(data.pred[[8]][[2]][i,])~dates.dec.5years,type="l",ylim=c(min(lwrbnd.mat.model.final[[8]][[2]]),max(uprbnd.mat.model.final[[8]][[2]])),xlab="Year",ylab="Value",bty="n")
+  points(pred.mat.model.final[[8]][[2]][,i]~dates.dec.5years,type="l",pch=16,col=2)
+  points(lwrbnd.mat.model.final[[8]][[2]][,i]~dates.dec.5years,type="l",lty=2,col=2)
+  points(uprbnd.mat.model.final[[8]][[2]][,i]~dates.dec.5years,type="l",lty=2,col=2)
+}
+par(mfrow=c(4,3))
+par(mar=c(0,0,0,0))
+plot(0,1,xlab="",ylab="",xaxt="n",yaxt="n",bty="n",type="n");legend("center",legend = expression(bold("9 regions")),bty="n")
+par(mar=c(4,4.5,1,0.5))
+for(i in 1:10){
+  plot(as.numeric(data.pred[[9]][[2]][i,])~dates.dec.5years,type="l",ylim=c(min(lwrbnd.mat.model.final[[9]][[2]]),max(uprbnd.mat.model.final[[9]][[2]])),xlab="Year",ylab="Value",bty="n")
+  points(pred.mat.model.final[[9]][[2]][,i]~dates.dec.5years,type="l",pch=16,col=2)
+  points(lwrbnd.mat.model.final[[9]][[2]][,i]~dates.dec.5years,type="l",lty=2,col=2)
+  points(uprbnd.mat.model.final[[9]][[2]][,i]~dates.dec.5years,type="l",lty=2,col=2)
+}
+par(mfrow=c(4,3))
+par(mar=c(0,0,0,0))
+plot(0,1,xlab="",ylab="",xaxt="n",yaxt="n",bty="n",type="n");legend("center",legend = expression(bold("(b) 10 regions")),bty="n",cex=1.5)
+par(mar=c(4,4.5,1,0.5))
+for(i in 1:10){
+  plot(as.numeric(data.pred[[10]][[2]][i,])~dates.dec.5years,type="l",ylim=c(min(lwrbnd.mat.model.final[[10]][[2]]),max(uprbnd.mat.model.final[[10]][[2]])),xlab="Year",ylab="Value",bty="n")
+  points(pred.mat.model.final[[10]][[2]][,i]~dates.dec.5years,type="l",pch=16,col=2)
+  points(lwrbnd.mat.model.final[[10]][[2]][,i]~dates.dec.5years,type="l",lty=2,col=2)
+  points(uprbnd.mat.model.final[[10]][[2]][,i]~dates.dec.5years,type="l",lty=2,col=2)
+  mtext(paste(i,"."),at=2014.2,line=-0.5,cex = 0.75)
+}
+par(mar=c(0,0,0,0))
+plot(x=c(0,1),y=c(0,1),xlab="",ylab="",xaxt="n",yaxt="n",bty="n",type="n");legend(x=0.7,y=0.5,xjust=0.5,yjust=0.5,legend = c("True data","Predictions","95% credible intervals"),pch=c(1,16,NA),lty=c(1,1,2),col=c(1,2,2),bty="n")
+par(mar=c(4,4.5,1,0.5))
+# save as C:\Users\craig\OneDrive - University of Glasgow\MDrive_partial_March2020\Ramganga\analysis\data_sim_June2020\
+# data_simulation_multiple_drone_sites_3\docfigs_pred10regions.png at 700 by 550 pixels.
+
+par(mfrow=c(1,1),mar=c(4,4.5,1,0.5))
+layout(matrix(c(1,1,1,2,2,2,3),ncol=1,nrow=7))
+plot(coords.pred[[1]][[2]],type="n",xlab="x-coordinate",ylab="y-coordinate",bty="n");abline(v=unique(grid.xy.droneLocs.all$x),col=c(rep("grey",100),rep(2,100),rep("grey",800)));points(coords.pred[[1]][[2]],pch=21,col=1,bg=2);text(coords.pred[[1]][[2]],pos=4)
+mtext(expression(bold("(a)")),at=-4000,line=-0.5)
+plot(coords.pred[[10]][[2]],type="n",xlab="x-coordinate",ylab="y-coordinate",bty="n");abline(v=unique(grid.xy.droneLocs.all$x),col=2);points(coords.pred[[10]][[2]],pch=21,col=1,bg=2);text(coords.pred[[10]][[2]],pos=4)
+mtext(expression(bold("(b)")),at=-4000,line=-0.5)
+par(mar=c(0,0,0,0))
+plot(x=c(0,1),y=c(0,1),xlab="",ylab="",xaxt="n",yaxt="n",bty="n",type="n");legend(x=0.5,y=0.5,xjust=0.5,yjust=0.5,legend = c("Prediction locations","Drone regions used in data","Drone regions not in data"),pch=c(21,NA,NA),col=c(1,NA,NA),pt.bg = c(2,NA,NA),fill = c(NA,2,"grey"),border=c(NA,1,1),bty="n",horiz = TRUE)
+par(mfrow=c(1,1),mar=c(4,4.5,1,0.5))
+# save as C:\Users\craig\OneDrive - University of Glasgow\MDrive_partial_March2020\Ramganga\analysis\data_sim_June2020\
+# data_simulation_multiple_drone_sites_3\docfigs_locsPred1and10regions.png at 750 by 350 pixels.
+
+# Calculate mean interval widths for i = 1, ..., 10 drone regions:
+
+# sd1:
+
+mean.int.widths.sd1<-numeric(10)
+for(i in 1:10){
+  mean.int.widths.sd1[i]<-mean(unlist(uprbnd.mat.model.final[[i]])-unlist(lwrbnd.mat.model.final[[i]]))
+}
+par(mfrow=c(1,1))
+plot(1:10,mean.int.widths.sd1,xlab="Number of drone regions",ylab="Mean interval width",type="o")
+
+data.pred.t<-vector("list",length = length(data.pred))
+for(i in 1:length(data.pred)){
+  data.pred.t[[i]]<-vector("list",length(data.pred[[i]]))
+  for(j in 1:length(data.pred[[i]])){
+    data.pred.t[[i]][[j]]<-t(data.pred[[i]][[j]])
+  }
+}
+
+rmse.sd1<-numeric(10)
+for(i in 1:10){
+  rmse.sd1[i]<-rmse(unlist(pred.mat.model.final[[i]]),unlist(data.pred.t[[i]]))
+}
+plot(1:10,rmse.sd1,xlab="Number of drone regions",ylab="RMSE of predictions",type="o")
+
+mean.int.coverage.sd1<-numeric(10)
+for(i in 1:10){
+  mean.int.coverage.sd1[i]<-mean(unlist(uprbnd.mat.model.final[[i]])>unlist(data.pred.t[[i]])&unlist(data.pred.t[[i]])>unlist(lwrbnd.mat.model.final[[i]]))
+}
+plot(1:10,mean.int.coverage.sd1,xlab="Number of drone regions",ylab="Mean interval coverage",type="o")
+
+
+# sd2:
+
+mean.int.widths.sd2<-numeric(10)
+for(i in 1:10){
+  mean.int.widths.sd2[i]<-mean(unlist(uprbnd.mat.model.final.sd2[[i]])-unlist(lwrbnd.mat.model.final.sd2[[i]]))
+}
+par(mfrow=c(1,1))
+plot(1:10,mean.int.widths.sd2,xlab="Number of drone regions",ylab="Mean interval width",type="o")
+
+data.pred.t<-vector("list",length = length(data.pred))
+for(i in 1:length(data.pred)){
+  data.pred.t[[i]]<-vector("list",length(data.pred[[i]]))
+  for(j in 1:length(data.pred[[i]])){
+    data.pred.t[[i]][[j]]<-t(data.pred[[i]][[j]])
+  }
+}
+
+rmse.sd2<-numeric(10)
+for(i in 1:10){
+  rmse.sd2[i]<-rmse(unlist(pred.mat.model.final.sd2[[i]]),unlist(data.pred.t[[i]]))
+}
+plot(1:10,rmse.sd2,xlab="Number of drone regions",ylab="RMSE of predictions",type="o")
+
+mean.int.coverage.sd2<-numeric(10)
+for(i in 1:10){
+  mean.int.coverage.sd2[i]<-mean(unlist(uprbnd.mat.model.final.sd2[[i]])>unlist(data.pred.t[[i]])&unlist(data.pred.t[[i]])>unlist(lwrbnd.mat.model.final.sd2[[i]]))
+}
+plot(1:10,mean.int.coverage.sd2,xlab="Number of drone regions",ylab="Mean interval coverage",type="o")
+
+
+# sd3:
+
+mean.int.widths.sd3<-numeric(10)
+for(i in 1:10){
+  mean.int.widths.sd3[i]<-mean(unlist(uprbnd.mat.model.final.sd3[[i]])-unlist(lwrbnd.mat.model.final.sd3[[i]]))
+}
+par(mfrow=c(1,1))
+plot(1:10,mean.int.widths.sd3,xlab="Number of drone regions",ylab="Mean interval width",type="o")
+
+data.pred.t<-vector("list",length = length(data.pred))
+for(i in 1:length(data.pred)){
+  data.pred.t[[i]]<-vector("list",length(data.pred[[i]]))
+  for(j in 1:length(data.pred[[i]])){
+    data.pred.t[[i]][[j]]<-t(data.pred[[i]][[j]])
+  }
+}
+
+rmse.sd3<-numeric(10)
+for(i in 1:10){
+  rmse.sd3[i]<-rmse(unlist(pred.mat.model.final.sd3[[i]]),unlist(data.pred.t[[i]]))
+}
+plot(1:10,rmse.sd3,xlab="Number of drone regions",ylab="RMSE of predictions",type="o")
+
+mean.int.coverage.sd3<-numeric(10)
+for(i in 1:10){
+  mean.int.coverage.sd3[i]<-mean(unlist(uprbnd.mat.model.final.sd3[[i]])>unlist(data.pred.t[[i]])&unlist(data.pred.t[[i]])>unlist(lwrbnd.mat.model.final.sd3[[i]]))
+}
+plot(1:10,mean.int.coverage.sd3,xlab="Number of drone regions",ylab="Mean interval coverage",type="o")
+
+library(xtable)
+xtable(cbind.data.frame(rmse.sd1,mean.int.widths.sd1,mean.int.coverage.sd1))
+xtable(cbind.data.frame(rmse.sd2,mean.int.widths.sd2,mean.int.coverage.sd2))
+xtable(cbind.data.frame(rmse.sd3,mean.int.widths.sd3,mean.int.coverage.sd3))
+
+par(mfrow=c(1,1))
+layout(matrix(c(1,2,2,3,3,4,4,5,6,6,7,7,8,8,9,10,10,11,11,12,12),nrow=3,ncol=7,byrow = TRUE))
+par(mar=c(0,0,0,0))
+plot(0,1,xlab="",ylab="",xaxt="n",yaxt="n",bty="n",type="n");legend("center",legend = expression(paste(sigma^2*" = 0.05"^2)),bty="n")
+par(mar=c(4,4.5,1,0.5))
+plot(1:10,rmse.sd1,xlab="Number of drone regions",ylab="RMSE of predictions",type="o",pch=16,bty="n",ylim=c(min(c(rmse.sd1,rmse.sd2,rmse.sd3)),max(c(rmse.sd1,rmse.sd2,rmse.sd3))))
+plot(1:10,mean.int.widths.sd1,xlab="Number of drone regions",ylab="Mean interval width",type="o",pch=16,bty="n",ylim=c(0,max(c(mean.int.widths.sd1,mean.int.widths.sd2,mean.int.widths.sd3))))
+plot(1:10,mean.int.coverage.sd1,xlab="Number of drone regions",ylab="Mean interval coverage",type="o",pch=16,bty="n",ylim=c(min(c(mean.int.coverage.sd1,mean.int.coverage.sd2,mean.int.coverage.sd3)),max(c(mean.int.coverage.sd1,mean.int.coverage.sd2,mean.int.coverage.sd3))))
+par(mar=c(0,0,0,0))
+plot(0,1,xlab="",ylab="",xaxt="n",yaxt="n",bty="n",type="n");legend("center",legend = expression(paste(sigma^2*" = 0.1"^2)),bty="n")
+par(mar=c(4,4.5,1,0.5))
+plot(1:10,rmse.sd2,xlab="Number of drone regions",ylab="RMSE of predictions",type="o",pch=16,bty="n",ylim=c(min(c(rmse.sd1,rmse.sd2,rmse.sd3)),max(c(rmse.sd1,rmse.sd2,rmse.sd3))))
+plot(1:10,mean.int.widths.sd2,xlab="Number of drone regions",ylab="Mean interval width",type="o",pch=16,bty="n",ylim=c(0,max(c(mean.int.widths.sd1,mean.int.widths.sd2,mean.int.widths.sd3))))
+plot(1:10,mean.int.coverage.sd2,xlab="Number of drone regions",ylab="Mean interval coverage",type="o",pch=16,bty="n",ylim=c(min(c(mean.int.coverage.sd1,mean.int.coverage.sd2,mean.int.coverage.sd3)),max(c(mean.int.coverage.sd1,mean.int.coverage.sd2,mean.int.coverage.sd3))))
+par(mar=c(0,0,0,0))
+plot(0,1,xlab="",ylab="",xaxt="n",yaxt="n",bty="n",type="n");legend("center",legend = expression(paste(sigma^2*" = 0.5"^2)),bty="n")
+par(mar=c(4,4.5,1,0.5))
+plot(1:10,rmse.sd3,xlab="Number of drone regions",ylab="RMSE of predictions",type="o",pch=16,bty="n",ylim=c(min(c(rmse.sd1,rmse.sd2,rmse.sd3)),max(c(rmse.sd1,rmse.sd2,rmse.sd3))))
+plot(1:10,mean.int.widths.sd3,xlab="Number of drone regions",ylab="Mean interval width",type="o",pch=16,bty="n",ylim=c(0,max(c(mean.int.widths.sd1,mean.int.widths.sd2,mean.int.widths.sd3))))
+plot(1:10,mean.int.coverage.sd3,xlab="Number of drone regions",ylab="Mean interval coverage",type="o",pch=16,bty="n",ylim=c(min(c(mean.int.coverage.sd1,mean.int.coverage.sd2,mean.int.coverage.sd3)),max(c(mean.int.coverage.sd1,mean.int.coverage.sd2,mean.int.coverage.sd3))))
+par(mfrow=c(1,1))
+# save as C:\Users\craig\OneDrive - University of Glasgow\MDrive_partial_March2020\Ramganga\analysis\data_sim_June2020\
+# data_simulation_multiple_drone_sites_3\docfigs_predComp.png at 700 by 500 pixels.
+
+par(mfrow=c(1,3))
+plot(1:10,rmse.sd1,xlab="Number of drone regions",ylab="RMSE of predictions",type="o",pch=16,bty="n",ylim=c(min(c(rmse.sd1,rmse.sd2,rmse.sd3)),max(c(rmse.sd1,rmse.sd2,rmse.sd3))))
+points(1:10,rmse.sd2,type="o",pch=15,col=2,lty=2)
+points(1:10,rmse.sd3,type="o",pch=17,col=3,lty=3)
+plot(1:10,mean.int.widths.sd1,xlab="Number of drone regions",ylab="Mean interval width",type="o",pch=16,bty="n",ylim=c(0,max(c(mean.int.widths.sd1,mean.int.widths.sd2,mean.int.widths.sd3))))
+points(1:10,mean.int.widths.sd2,type="o",pch=15,col=2,lty=2)
+points(1:10,mean.int.widths.sd3,type="o",pch=17,col=3,lty=3)
+plot(1:10,mean.int.coverage.sd1,xlab="Number of drone regions",ylab="Mean interval coverage",type="o",pch=16,bty="n",ylim=c(min(c(mean.int.coverage.sd1,mean.int.coverage.sd2,mean.int.coverage.sd3)),max(c(mean.int.coverage.sd1,mean.int.coverage.sd2,mean.int.coverage.sd3))))
+points(1:10,mean.int.coverage.sd2,type="o",pch=15,col=2,lty=2)
+points(1:10,mean.int.coverage.sd3,type="o",pch=17,col=3,lty=3)
+
+#############################################################################################################################################
+
+# Data spread over more sites results in higher RMSE - why?
+
+set.seed(12345)
+sample.10<-sample(1:nrow(grid.xy),10)
+sample.10a<-sample((1:nrow(grid.xy))[grid.xy$x<=10000],10)
+sample.10b<-sample((1:nrow(grid.xy))[grid.xy$x>=40000],10)
+
+data.pred.10<-simData.true[sample.10,]
+data.pred.10a<-simData.true[sample.10a,]
+data.pred.10b<-simData.true[sample.10b,]
+
+coords.pred.10<-cbind.data.frame(x=grid.xy$x[sample.10],y=grid.xy$y[sample.10])
+coords.pred.10a<-cbind.data.frame(x=grid.xy$x[sample.10a],y=grid.xy$y[sample.10a])
+coords.pred.10b<-cbind.data.frame(x=grid.xy$x[sample.10b],y=grid.xy$y[sample.10b])
+
+plot(grid.xy$x,grid.xy$y,type="n",bty="n",xlab="x-coordinate",ylab="y-coordinate")
+abline(v=unique(grid.xy.droneLocs.all$x),col="grey")
+points(coords.pred.10,pch=0,col=1)
+points(coords.pred.10a,col=2,pch=2)
+points(coords.pred.10b,col=4,pch=3)
+
+#
+
+which.closest.sat.pred.drone.10<-numeric(nrow(coords.pred.10))
+which.closest.sat.pred.drone.10a<-numeric(nrow(coords.pred.10))
+which.closest.sat.pred.drone.10b<-numeric(nrow(coords.pred.10))
+for(i in 1:nrow(coords.pred.10)){
+  which.closest.sat.pred.drone.10[i]<-which.min(spDistsN1(cbind(grid.xy.sat$x,grid.xy.sat$y),as.numeric(coords.pred.10[i,])))
+  which.closest.sat.pred.drone.10a[i]<-which.min(spDistsN1(cbind(grid.xy.sat$x,grid.xy.sat$y),as.numeric(coords.pred.10a[i,])))
+  which.closest.sat.pred.drone.10b[i]<-which.min(spDistsN1(cbind(grid.xy.sat$x,grid.xy.sat$y),as.numeric(coords.pred.10b[i,])))
+}
+
+data.sat.pred.10<-simData2.sat.sd1[which.closest.sat.pred.drone.10,]
+data.sat.pred.10a<-simData2.sat.sd1[which.closest.sat.pred.drone.10a,]
+data.sat.pred.10b<-simData2.sat.sd1[which.closest.sat.pred.drone.10b,]
+
+#
+
+set.seed(543)
+seq.2500<-seq(from=2500,to=25000,by=2500)
+sample.10.resp<-vector("list",10)
+for(i in 1:10){
+  sample.10.resp[[i]]<-sample(1:seq.2500[i],100)
+}
+
+coords.resp.10<-vector("list",10)
+for(i in 1:10){
+  coords.resp.10[[i]]<-cbind.data.frame(x=grid.xy.droneLocs.all$x[sample.10.resp[[i]]],y=grid.xy.droneLocs.all$y[sample.10.resp[[i]]])
+}
+data.resp.10<-vector("list",10)
+for(i in 1:10){
+  data.resp.10[[i]]<-simData3.droneLocs.sd1[sample.10.resp[[i]],]
+}
+
+# for(i in 1:10){text(coords.resp.10[[i]],labels = i,col=rev(rainbow(10))[i])}
+par(mfrow=c(4,3),mar=c(4,4.5,1,0.5))
+for(i in 1:10){
+  plot(grid.xy$x,grid.xy$y,type="n",bty="n",xlab="x-coordinate",ylab="y-coordinate")
+  abline(v=unique(grid.xy.droneLocs.all$x),col="grey")
+  points(coords.pred.10,pch=0,col="grey")
+  points(coords.pred.10a,col="grey",pch=2)
+  points(coords.pred.10b,col="grey",pch=3)
+  points(coords.resp.10[[i]],pch=16,cex=0.75,col=2)
+}
+par(mfrow=c(1,1),mar=c(4,4.5,1,0.5))
+
+which.closest.sat.drone.10<-vector("list",10)
+for(i in 1:10){
+  which.closest.sat.drone.10[[i]]<-numeric(100)
+  for(j in 1:100){
+    which.closest.sat.drone.10[[i]][j]<-which.min(spDistsN1(cbind(grid.xy.sat$x,grid.xy.sat$y),as.numeric(coords.resp.10[[i]][j,])))
+  }
+}
+
+data.sat.10<-vector("list",10)
+coords.sat.10<-vector("list",10)
+for(i in 1:10){
+  data.sat.10[[i]]<-simData2.sat.sd1[which.closest.sat.drone.10[[i]],]
+  coords.sat.10[[i]]<-cbind.data.frame(x=grid.xy.sat$x[which.closest.sat.drone.10[[i]]],y=grid.xy.sat$y[which.closest.sat.drone.10[[i]]])
+}
+
+#
+
+basis.list.bspline<-vector("list",length(seq.bspline))
+for(i in 1:length(basis.list.bspline)){
+  basis.list.bspline[[i]]<-create.bspline.basis(rangeval = c(min(dates.dec.sat),
+                                                             max(dates.dec.sat)),
+                                                nbasis = seq.bspline[i])
+}
+eb.resp.bspline<-vector("list",length(seq.bspline))
+eb.sat.bspline<-vector("list",length(seq.bspline))
+eb.pred.bspline<-vector("list",length(seq.bspline))
+for(i in 1:length(seq.bspline)){
+  eb.resp.bspline[[i]]<-vector("list",100)
+  for(j in 1:100){
+    eb.resp.bspline[[i]][[j]]<-eval.basis(times.to.list(t(data.resp[[1]][[1]]),dates.dec.droneLocs)[[j]],basis.list.bspline[[i]])
+  }
+  eb.sat.bspline[[i]]<-eval.basis(dates.dec.sat,basis.list.bspline[[i]])
+  eb.pred.bspline[[i]]<-eval.basis(dates.dec.5years,basis.list.bspline[[i]])
+}
+
+#
+
+# pred.mat.model.10<-vector("list",10)
+# lwrbnd.mat.model.10<-vector("list",10)
+# uprbnd.mat.model.10<-vector("list",10)
+# cor.model.10<-numeric(10)
+# rmse.model.10<-numeric(10)
+# for(i in 1:10){
+#   model.test<-run.NSDmodel(nIter=10000,nBurnIn=100,nChains=2,nThin=10,
+#                            yData=matrix.to.list(t(data.resp.10[[i]])),
+#                            xData=t(data.sat.10[[i]]),
+#                            xPred=t(data.sat.pred.10),
+#                            coordsData=as.matrix(coords.resp.10[[i]]),
+#                            coordsPred=as.matrix(coords.pred.10),
+#                            By=eb.resp.bspline[[which(seq.bspline==13)]],
+#                            Bx=eb.sat.bspline[[which(seq.bspline==13)]],
+#                            ByPred=eb.pred.bspline[[which(seq.bspline==13)]],
+#                            phiAlpha=0.0001, phiBeta=0.0001,
+#                            aAlpha=2, bAlpha=1,
+#                            aBeta=2, bBeta=1,
+#                            aY=2, bY=1,
+#                            aC=2, bC=1,
+#                            aX=2, bX=1,
+#                            muD=rep(0, seq.bspline[which(seq.bspline==13)]),SigmaD=100*diag(seq.bspline[which(seq.bspline==13)]),
+#                            sigmaAlphaPrecInit=1.1, sigmaBetaPrecInit=1.2,
+#                            sigmaYPrecInit=1.10,
+#                            sigmaCPrecInit=1.4,
+#                            alphaInit=matrix(0, nrow = seq.bspline[which(seq.bspline==13)], ncol = 100),
+#                            betaInit=matrix(0.4, nrow = seq.bspline[which(seq.bspline==13)], ncol = 100),
+#                            cInit=matrix(0.5, nrow = seq.bspline[which(seq.bspline==13)], ncol = 100),
+#                            sigmaXPrecInit=1.5,
+#                            dInit=matrix(0.6, nrow = seq.bspline[which(seq.bspline==13)], ncol = 100))
+#   summary.model.test<-summary(model.test)
+#   dim(summary.model.test$quantiles)
+#   tail(summary.model.test$quantiles)
+#   
+#   pred.mat.model.10[[i]]<-matrix(summary.model.test$quantiles[nrow(summary.model.test$quantiles)-((600-1):0),3],nrow=60,ncol=10)
+#   lwrbnd.mat.model.10[[i]]<-matrix(summary.model.test$quantiles[nrow(summary.model.test$quantiles)-((600-1):0),1],nrow=60,ncol=10)
+#   uprbnd.mat.model.10[[i]]<-matrix(summary.model.test$quantiles[nrow(summary.model.test$quantiles)-((600-1):0),5],nrow=60,ncol=10)
+#   
+#   cor.model.10[i]<-cor(as.numeric(pred.mat.model.10[[i]]),as.numeric(t(data.pred.10)))
+#   rmse.model.10[i]<-rmse(as.numeric(pred.mat.model.10[[i]]),as.numeric(t(data.pred.10)))
+#   
+#   print(c(i,Sys.time()))
+# }
+# save(pred.mat.model.10,file="C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/pred_mat_model_10.RData")
+# save(lwrbnd.mat.model.10,file="C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/lwrbnd_mat_model_10.RData")
+# save(uprbnd.mat.model.10,file="C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/uprbnd_mat_model_10.RData")
+# save(cor.model.10,file="C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/cor_model_10.RData")
+# save(rmse.model.10,file="C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/rmse_model_10.RData")
+
+#
+
+# pred.mat.model.10a<-vector("list",10)
+# lwrbnd.mat.model.10a<-vector("list",10)
+# uprbnd.mat.model.10a<-vector("list",10)
+# cor.model.10a<-numeric(10)
+# rmse.model.10a<-numeric(10)
+# for(i in 1:10){
+#   model.test<-run.NSDmodel(nIter=10000,nBurnIn=100,nChains=2,nThin=10,
+#                            yData=matrix.to.list(t(data.resp.10[[i]])),
+#                            xData=t(data.sat.10[[i]]),
+#                            xPred=t(data.sat.pred.10a),
+#                            coordsData=as.matrix(coords.resp.10[[i]]),
+#                            coordsPred=as.matrix(coords.pred.10a),
+#                            By=eb.resp.bspline[[which(seq.bspline==13)]],
+#                            Bx=eb.sat.bspline[[which(seq.bspline==13)]],
+#                            ByPred=eb.pred.bspline[[which(seq.bspline==13)]],
+#                            phiAlpha=0.0001, phiBeta=0.0001,
+#                            aAlpha=2, bAlpha=1,
+#                            aBeta=2, bBeta=1,
+#                            aY=2, bY=1,
+#                            aC=2, bC=1,
+#                            aX=2, bX=1,
+#                            muD=rep(0, seq.bspline[which(seq.bspline==13)]),SigmaD=100*diag(seq.bspline[which(seq.bspline==13)]),
+#                            sigmaAlphaPrecInit=1.1, sigmaBetaPrecInit=1.2,
+#                            sigmaYPrecInit=1.10,
+#                            sigmaCPrecInit=1.4,
+#                            alphaInit=matrix(0, nrow = seq.bspline[which(seq.bspline==13)], ncol = 100),
+#                            betaInit=matrix(0.4, nrow = seq.bspline[which(seq.bspline==13)], ncol = 100),
+#                            cInit=matrix(0.5, nrow = seq.bspline[which(seq.bspline==13)], ncol = 100),
+#                            sigmaXPrecInit=1.5,
+#                            dInit=matrix(0.6, nrow = seq.bspline[which(seq.bspline==13)], ncol = 100))
+#   summary.model.test<-summary(model.test)
+#   dim(summary.model.test$quantiles)
+#   tail(summary.model.test$quantiles)
+#   
+#   pred.mat.model.10a[[i]]<-matrix(summary.model.test$quantiles[nrow(summary.model.test$quantiles)-((600-1):0),3],nrow=60,ncol=10)
+#   lwrbnd.mat.model.10a[[i]]<-matrix(summary.model.test$quantiles[nrow(summary.model.test$quantiles)-((600-1):0),1],nrow=60,ncol=10)
+#   uprbnd.mat.model.10a[[i]]<-matrix(summary.model.test$quantiles[nrow(summary.model.test$quantiles)-((600-1):0),5],nrow=60,ncol=10)
+#   
+#   cor.model.10a[i]<-cor(as.numeric(pred.mat.model.10a[[i]]),as.numeric(t(data.pred.10a)))
+#   rmse.model.10a[i]<-rmse(as.numeric(pred.mat.model.10a[[i]]),as.numeric(t(data.pred.10a)))
+#   
+#   print(c(i,Sys.time()))
+# }
+# save(pred.mat.model.10a,file="C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/pred_mat_model_10a.RData")
+# save(lwrbnd.mat.model.10a,file="C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/lwrbnd_mat_model_10a.RData")
+# save(uprbnd.mat.model.10a,file="C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/uprbnd_mat_model_10a.RData")
+# save(cor.model.10a,file="C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/cor_model_10a.RData")
+# save(rmse.model.10a,file="C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/rmse_model_10a.RData")
+
+#
+
+# pred.mat.model.10b<-vector("list",10)
+# lwrbnd.mat.model.10b<-vector("list",10)
+# uprbnd.mat.model.10b<-vector("list",10)
+# cor.model.10b<-numeric(10)
+# rmse.model.10b<-numeric(10)
+# for(i in 1:10){
+#   model.test<-run.NSDmodel(nIter=10000,nBurnIn=100,nChains=2,nThin=10,
+#                            yData=matrix.to.list(t(data.resp.10[[i]])),
+#                            xData=t(data.sat.10[[i]]),
+#                            xPred=t(data.sat.pred.10b),
+#                            coordsData=as.matrix(coords.resp.10[[i]]),
+#                            coordsPred=as.matrix(coords.pred.10b),
+#                            By=eb.resp.bspline[[which(seq.bspline==13)]],
+#                            Bx=eb.sat.bspline[[which(seq.bspline==13)]],
+#                            ByPred=eb.pred.bspline[[which(seq.bspline==13)]],
+#                            phiAlpha=0.0001, phiBeta=0.0001,
+#                            aAlpha=2, bAlpha=1,
+#                            aBeta=2, bBeta=1,
+#                            aY=2, bY=1,
+#                            aC=2, bC=1,
+#                            aX=2, bX=1,
+#                            muD=rep(0, seq.bspline[which(seq.bspline==13)]),SigmaD=100*diag(seq.bspline[which(seq.bspline==13)]),
+#                            sigmaAlphaPrecInit=1.1, sigmaBetaPrecInit=1.2,
+#                            sigmaYPrecInit=1.10,
+#                            sigmaCPrecInit=1.4,
+#                            alphaInit=matrix(0, nrow = seq.bspline[which(seq.bspline==13)], ncol = 100),
+#                            betaInit=matrix(0.4, nrow = seq.bspline[which(seq.bspline==13)], ncol = 100),
+#                            cInit=matrix(0.5, nrow = seq.bspline[which(seq.bspline==13)], ncol = 100),
+#                            sigmaXPrecInit=1.5,
+#                            dInit=matrix(0.6, nrow = seq.bspline[which(seq.bspline==13)], ncol = 100))
+#   summary.model.test<-summary(model.test)
+#   dim(summary.model.test$quantiles)
+#   tail(summary.model.test$quantiles)
+#   
+#   pred.mat.model.10b[[i]]<-matrix(summary.model.test$quantiles[nrow(summary.model.test$quantiles)-((600-1):0),3],nrow=60,ncol=10)
+#   lwrbnd.mat.model.10b[[i]]<-matrix(summary.model.test$quantiles[nrow(summary.model.test$quantiles)-((600-1):0),1],nrow=60,ncol=10)
+#   uprbnd.mat.model.10b[[i]]<-matrix(summary.model.test$quantiles[nrow(summary.model.test$quantiles)-((600-1):0),5],nrow=60,ncol=10)
+#   
+#   cor.model.10b[i]<-cor(as.numeric(pred.mat.model.10b[[i]]),as.numeric(t(data.pred.10b)))
+#   rmse.model.10b[i]<-rmse(as.numeric(pred.mat.model.10b[[i]]),as.numeric(t(data.pred.10b)))
+#   
+#   print(c(i,Sys.time()))
+# }
+# save(pred.mat.model.10b,file="C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/pred_mat_model_10b.RData")
+# save(lwrbnd.mat.model.10b,file="C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/lwrbnd_mat_model_10b.RData")
+# save(uprbnd.mat.model.10b,file="C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/uprbnd_mat_model_10b.RData")
+# save(cor.model.10b,file="C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/cor_model_10b.RData")
+# save(rmse.model.10b,file="C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/rmse_model_10b.RData")
+
+load("C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/pred_mat_model_10.RData")
+load("C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/lwrbnd_mat_model_10.RData")
+load("C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/uprbnd_mat_model_10.RData")
+load("C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/cor_model_10.RData")
+load("C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/rmse_model_10.RData")
+
+load("C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/pred_mat_model_10a.RData")
+load("C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/lwrbnd_mat_model_10a.RData")
+load("C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/uprbnd_mat_model_10a.RData")
+load("C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/cor_model_10a.RData")
+load("C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/rmse_model_10a.RData")
+
+load("C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/pred_mat_model_10b.RData")
+load("C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/lwrbnd_mat_model_10b.RData")
+load("C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/uprbnd_mat_model_10b.RData")
+load("C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/cor_model_10b.RData")
+load("C:/Users/craig/OneDrive - University of Glasgow/MDrive_partial_March2020/Ramganga/analysis/data_sim_June2020/data_simulation_multiple_drone_sites_3/model_output_2/rmse_model_10b.RData")
+
+rmse.model.10
+rmse.model.10a
+rmse.model.10b
+
+par(mfrow=c(2,2),mar=c(4,4.5,1.5,0.5))
+plot(rmse.model.10,type="o",xlab="Number of drone regions",ylab="RMSE",main="Predictions throughout segment")
+plot(rmse.model.10a,type="o",xlab="Number of drone regions",ylab="RMSE",main="Predictions close to drone region 1")
+plot(rmse.model.10b,type="o",xlab="Number of drone regions",ylab="RMSE",main="Predictions close to drone region 10")
+par(mfrow=c(1,1),mar=c(4,4.5,1,0.5))
+
+
+
+
+
+
+

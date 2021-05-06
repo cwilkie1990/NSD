@@ -1,0 +1,146 @@
+[
+    {
+        "file": "C:/Users/craig/OneDrive - University of Glasgow/Papers_drafts_submitted/nonparametric_statistical_downscaling/R_package_test/NSD_for_R4_onwards/NSD/src-i386/NSD_cpp_code.cpp",
+        "file_last_write": 1594648790.0,
+        "definitions": []
+    },
+    {
+        "file": "C:/Users/craig/OneDrive - University of Glasgow/Papers_drafts_submitted/nonparametric_statistical_downscaling/R_package_test/NSD_for_R4_onwards/NSD/src-x64/NSD_cpp_code.cpp",
+        "file_last_write": 1594648803.0,
+        "definitions": []
+    },
+    {
+        "file": "C:/Users/craig/OneDrive - University of Glasgow/Papers_drafts_submitted/nonparametric_statistical_downscaling/R_package_test/NSD_for_R4_onwards/NSD/src/NSD_cpp_code.cpp",
+        "file_last_write": 1530190463.0,
+        "definitions": []
+    },
+    {
+        "file": "C:/Users/craig/OneDrive - University of Glasgow/Papers_drafts_submitted/nonparametric_statistical_downscaling/R_package_test/NSD_with_3_sources/NSD/src/NSD_cpp_code.cpp",
+        "file_last_write": 1617549422.0,
+        "definitions": [
+            {
+                "usr": "c:@F@calcDistsArma#$@N@arma@S@Mat>#d#",
+                "kind": 6,
+                "parent_name": "",
+                "name": "calcDistsArma(arma::mat)",
+                "file": "C:/Users/craig/OneDrive - University of Glasgow/Papers_drafts_submitted/nonparametric_statistical_downscaling/R_package_test/NSD_with_3_sources/NSD/src/NSD_cpp_code.cpp",
+                "line": 12,
+                "column": 11
+            },
+            {
+                "usr": "c:@F@H0functionArma#d#$@N@arma@S@Mat>#d#",
+                "kind": 6,
+                "parent_name": "",
+                "name": "H0functionArma(double, arma::mat)",
+                "file": "C:/Users/craig/OneDrive - University of Glasgow/Papers_drafts_submitted/nonparametric_statistical_downscaling/R_package_test/NSD_with_3_sources/NSD/src/NSD_cpp_code.cpp",
+                "line": 35,
+                "column": 11
+            },
+            {
+                "usr": "c:@F@choleskyEfficient#$@N@arma@S@Mat>#d#",
+                "kind": 6,
+                "parent_name": "",
+                "name": "choleskyEfficient(arma::mat)",
+                "file": "C:/Users/craig/OneDrive - University of Glasgow/Papers_drafts_submitted/nonparametric_statistical_downscaling/R_package_test/NSD_with_3_sources/NSD/src/NSD_cpp_code.cpp",
+                "line": 43,
+                "column": 11
+            },
+            {
+                "usr": "c:@F@NSDmodel#I#I#I#I#I#I#I#I#I#I#d#d#d#d#d#d#d#d#d#d#d#d#I#I#d#d#d#d#I#I#I#d#I#",
+                "kind": 6,
+                "parent_name": "",
+                "name": "NSDmodel(int, int, Rcpp::List, Rcpp::NumericMatrix, Rcpp::NumericMatrix, Rcpp::NumericMatrix, Rcpp::NumericMatrix, Rcpp::List, Rcpp::NumericMatrix, Rcpp::NumericMatrix, double, double, double, double, double, double, double, double, double, double, double, double, Rcpp::NumericVector, Rcpp::NumericMatrix, double, double, double, double, Rcpp::NumericMatrix, Rcpp::NumericMatrix, Rcpp::NumericMatrix, double, Rcpp::NumericMatrix)",
+                "file": "C:/Users/craig/OneDrive - University of Glasgow/Papers_drafts_submitted/nonparametric_statistical_downscaling/R_package_test/NSD_with_3_sources/NSD/src/NSD_cpp_code.cpp",
+                "line": 73,
+                "column": 15
+            },
+            {
+                "usr": "c:@F@NSDmodelMulti#I#I#I#I#I#I#I#I#I#I#I#I#I#d#d#d#d#d#d#d#d#d#d#d#d#d#d#d#d#d#I#I#I#I#d#d#d#d#d#I#I#I#I#d#d#I#I#",
+                "kind": 6,
+                "parent_name": "",
+                "name": "NSDmodelMulti(int, int, Rcpp::List, Rcpp::NumericMatrix, Rcpp::NumericMatrix, Rcpp::NumericMatrix, Rcpp::NumericMatrix, Rcpp::NumericMatrix, Rcpp::NumericMatrix, Rcpp::List, Rcpp::NumericMatrix, Rcpp::NumericMatrix, Rcpp::NumericMatrix, double, double, double, double, double, double, double, double, double, double, double, double, double, double, double, double, double, Rcpp::NumericVector, Rcpp::NumericMatrix, Rcpp::NumericVector, Rcpp::NumericMatrix, double, double, double, double, double, Rcpp::NumericMatrix, Rcpp::NumericMatrix, Rcpp::NumericMatrix, Rcpp::NumericMatrix, double, double, Rcpp::NumericMatrix, Rcpp::NumericMatrix)",
+                "file": "C:/Users/craig/OneDrive - University of Glasgow/Papers_drafts_submitted/nonparametric_statistical_downscaling/R_package_test/NSD_with_3_sources/NSD/src/NSD_cpp_code.cpp",
+                "line": 337,
+                "column": 15
+            },
+            {
+                "usr": "c:@F@NSDmodel2Stage#I#I#I#I#I#I#I#I#I#I#I#I#I#d#d#d#d#d#d#d#d#d#d#d#d#d#d#d#d#d#d#d#d#d#d#I#I#d#d#d#d#d#d#d#d#d#I#I#I#I#I#I#I#",
+                "kind": 6,
+                "parent_name": "",
+                "name": "NSDmodel2Stage(int, int, Rcpp::List, Rcpp::NumericMatrix, Rcpp::NumericMatrix, Rcpp::NumericMatrix, Rcpp::NumericMatrix, Rcpp::NumericMatrix, Rcpp::NumericMatrix, Rcpp::List, Rcpp::NumericMatrix, Rcpp::NumericMatrix, Rcpp::NumericMatrix, double, double, double, double, double, double, double, double, double, double, double, double, double, double, double, double, double, double, double, double, double, double, Rcpp::NumericVector, Rcpp::NumericMatrix, double, double, double, double, double, double, double, double, double, Rcpp::NumericMatrix, Rcpp::NumericMatrix, Rcpp::NumericMatrix, Rcpp::NumericMatrix, Rcpp::NumericMatrix, Rcpp::NumericMatrix, Rcpp::NumericMatrix)",
+                "file": "C:/Users/craig/OneDrive - University of Glasgow/Papers_drafts_submitted/nonparametric_statistical_downscaling/R_package_test/NSD_with_3_sources/NSD/src/NSD_cpp_code.cpp",
+                "line": 705,
+                "column": 15
+            },
+            {
+                "usr": "c:@F@NSDmodelMulti2#I#I#I#I#I#I#I#I#I#I#I#I#I#I#I#d#d#d#d#d#d#d#d#d#d#d#d#d#d#d#d#d#I#I#I#I#d#d#d#d#d#I#I#I#I#d#d#I#I#",
+                "kind": 6,
+                "parent_name": "",
+                "name": "NSDmodelMulti2(int, int, Rcpp::List, Rcpp::List, Rcpp::List, Rcpp::List, Rcpp::List, Rcpp::NumericMatrix, Rcpp::NumericMatrix, Rcpp::List, Rcpp::List, Rcpp::List, Rcpp::NumericMatrix, Rcpp::List, Rcpp::List, double, double, double, double, double, double, double, double, double, double, double, double, double, double, double, double, double, Rcpp::NumericVector, Rcpp::NumericMatrix, Rcpp::NumericVector, Rcpp::NumericMatrix, double, double, double, double, double, Rcpp::NumericMatrix, Rcpp::NumericMatrix, Rcpp::NumericMatrix, Rcpp::NumericMatrix, double, double, Rcpp::NumericMatrix, Rcpp::NumericMatrix)",
+                "file": "C:/Users/craig/OneDrive - University of Glasgow/Papers_drafts_submitted/nonparametric_statistical_downscaling/R_package_test/NSD_with_3_sources/NSD/src/NSD_cpp_code.cpp",
+                "line": 1101,
+                "column": 15
+            },
+            {
+                "usr": "c:@F@NSDmodel2#I#I#I#I#I#I#I#I#I#I#I#d#d#d#d#d#d#d#d#d#d#d#d#I#I#d#d#d#d#I#I#I#d#I#",
+                "kind": 6,
+                "parent_name": "",
+                "name": "NSDmodel2(int, int, Rcpp::List, Rcpp::List, Rcpp::List, Rcpp::NumericMatrix, Rcpp::NumericMatrix, Rcpp::List, Rcpp::List, Rcpp::NumericMatrix, Rcpp::List, double, double, double, double, double, double, double, double, double, double, double, double, Rcpp::NumericVector, Rcpp::NumericMatrix, double, double, double, double, Rcpp::NumericMatrix, Rcpp::NumericMatrix, Rcpp::NumericMatrix, double, Rcpp::NumericMatrix)",
+                "file": "C:/Users/craig/OneDrive - University of Glasgow/Papers_drafts_submitted/nonparametric_statistical_downscaling/R_package_test/NSD_with_3_sources/NSD/src/NSD_cpp_code.cpp",
+                "line": 1532,
+                "column": 15
+            }
+        ]
+    },
+    {
+        "file": "C:/Users/craig/OneDrive - University of Glasgow/Papers_drafts_submitted/nonparametric_statistical_downscaling/R_package_test/NSD_with_3_sources_v2/NSD/src/NSD_cpp_code.cpp",
+        "file_last_write": 1619702692.0,
+        "definitions": [
+            {
+                "usr": "c:@F@calcDistsArma#$@N@arma@S@Mat>#d#",
+                "kind": 6,
+                "parent_name": "",
+                "name": "calcDistsArma(arma::mat)",
+                "file": "C:/Users/craig/OneDrive - University of Glasgow/Papers_drafts_submitted/nonparametric_statistical_downscaling/R_package_test/NSD_with_3_sources_v2/NSD/src/NSD_cpp_code.cpp",
+                "line": 12,
+                "column": 11
+            },
+            {
+                "usr": "c:@F@H0functionArma#d#$@N@arma@S@Mat>#d#",
+                "kind": 6,
+                "parent_name": "",
+                "name": "H0functionArma(double, arma::mat)",
+                "file": "C:/Users/craig/OneDrive - University of Glasgow/Papers_drafts_submitted/nonparametric_statistical_downscaling/R_package_test/NSD_with_3_sources_v2/NSD/src/NSD_cpp_code.cpp",
+                "line": 35,
+                "column": 11
+            },
+            {
+                "usr": "c:@F@choleskyEfficient#$@N@arma@S@Mat>#d#",
+                "kind": 6,
+                "parent_name": "",
+                "name": "choleskyEfficient(arma::mat)",
+                "file": "C:/Users/craig/OneDrive - University of Glasgow/Papers_drafts_submitted/nonparametric_statistical_downscaling/R_package_test/NSD_with_3_sources_v2/NSD/src/NSD_cpp_code.cpp",
+                "line": 43,
+                "column": 11
+            },
+            {
+                "usr": "c:@F@NSDmodel#I#I#I#I#I#I#I#I#I#I#I#d#d#d#d#d#d#d#d#d#d#d#d#I#I#d#d#d#d#I#I#I#d#I#",
+                "kind": 6,
+                "parent_name": "",
+                "name": "NSDmodel(int, int, Rcpp::List, Rcpp::List, Rcpp::List, Rcpp::NumericMatrix, Rcpp::NumericMatrix, Rcpp::List, Rcpp::List, Rcpp::NumericMatrix, Rcpp::List, double, double, double, double, double, double, double, double, double, double, double, double, Rcpp::NumericVector, Rcpp::NumericMatrix, double, double, double, double, Rcpp::NumericMatrix, Rcpp::NumericMatrix, Rcpp::NumericMatrix, double, Rcpp::NumericMatrix)",
+                "file": "C:/Users/craig/OneDrive - University of Glasgow/Papers_drafts_submitted/nonparametric_statistical_downscaling/R_package_test/NSD_with_3_sources_v2/NSD/src/NSD_cpp_code.cpp",
+                "line": 73,
+                "column": 15
+            },
+            {
+                "usr": "c:@F@NSDmodelMulti#I#I#I#I#I#I#I#I#I#I#I#I#I#I#I#d#d#d#d#d#d#d#d#d#d#d#d#d#d#d#d#d#I#I#I#I#d#d#d#d#d#I#I#I#I#d#d#I#I#",
+                "kind": 6,
+                "parent_name": "",
+                "name": "NSDmodelMulti(int, int, Rcpp::List, Rcpp::List, Rcpp::List, Rcpp::List, Rcpp::List, Rcpp::NumericMatrix, Rcpp::NumericMatrix, Rcpp::List, Rcpp::List, Rcpp::List, Rcpp::NumericMatrix, Rcpp::List, Rcpp::List, double, double, double, double, double, double, double, double, double, double, double, double, double, double, double, double, double, Rcpp::NumericVector, Rcpp::NumericMatrix, Rcpp::NumericVector, Rcpp::NumericMatrix, double, double, double, double, double, Rcpp::NumericMatrix, Rcpp::NumericMatrix, Rcpp::NumericMatrix, Rcpp::NumericMatrix, double, double, Rcpp::NumericMatrix, Rcpp::NumericMatrix)",
+                "file": "C:/Users/craig/OneDrive - University of Glasgow/Papers_drafts_submitted/nonparametric_statistical_downscaling/R_package_test/NSD_with_3_sources_v2/NSD/src/NSD_cpp_code.cpp",
+                "line": 356,
+                "column": 15
+            }
+        ]
+    }
+]

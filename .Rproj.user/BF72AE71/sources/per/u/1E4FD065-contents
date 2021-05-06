@@ -1,0 +1,137 @@
+if(require("fda")){
+  data(ISdata)
+  data(RSdata)
+  data(coords.IS)
+  data(coords.RS)
+  data(coords.outline)
+  data(which.closest)
+  data(which.closest.RS)
+  data(months.balaton)
+  
+  # Let's predict at a sequence of 250 times at prediction location P1 (see
+  # Wilkie et al. 2018):
+  et.pred <- seq(min(months.balaton), max(months.balaton), length.out = 250)
+  p.RS.1 <- 425
+  pred.P1 <- run.NSDmodel(nIter=1000, nBurnIn=10, nChains=2, nThin=2,yData=ISdata, xData=RSdata[, which.closest],
+                          xPred=RSdata[, p.RS.1], coordsData=coords.IS, coordsPred=coords.RS[p.RS.1, ], 
+                          times.yData = months.balaton, times.xData = months.balaton, times.xPred = months.balaton, times.yPred = et.pred,
+                          basis.type = "fourier",basis.dim = 9,period = 1)
+  # Warnings appear about providing times in Date format. This is OK, but note that we set period = 1 instead of period = 365, since the
+  # function converts the dates to decimal years, e.g. "2002-06-15" is converted to approximately 2002.452, so that one unit of time is one
+  # year instead of one day.
+  
+  summary.P1 <- summary.NSD(pred.P1)
+  
+  # Get the predictions and 95\% credible interval bounds from the summary:
+  
+  # Plot the estimates for P1 and the 95\% credible intervals:
+  plot(summary.P1$pred.mat[,1] ~ et.pred, type = "l", ylim = c(min(summary.P1$lwrbnd.mat[,1]), 
+                                                       max(summary.P1$uprbnd.mat[,1])), xlab = "Year", ylab = "Log(chlorophyll-a)")
+  lines(summary.P1$lwrbnd.mat[,1] ~ et.pred, lty = 2)
+  lines(summary.P1$uprbnd.mat[,1] ~ et.pred, lty = 2)
+}
+
+\dontrun{## Predictions across the lake, for the middle of each month:
+  ## NOTE: This is very slow to run! ##
+  if(require("fda")&require("sp")){
+    data(ISdata)
+    data(RSdata)
+    data(coords.IS)
+    data(coords.RS)
+    data(coords.outline)
+    data(which.closest)
+    data(which.closest.RS)
+    data(months.balaton)
+    
+    IS.avail<-matrix.to.list(ISdata)
+    times.avail<-times.to.list(ISdata,months.balaton.dec)
+    
+    # Create Fourier basis of dimension 9, with period 1 year:
+    Fourier.9.basis <- create.fourier.basis(as.numeric(min(months.balaton.dec),
+                                                       max(months.balaton.dec)), nbasis = 9, period = 365)
+    plot(Fourier.9.basis)
+    
+    # Evaluate this basis at the times of in-situ data collection, times of remote 
+    # sensing data collection and prediction times (if different):
+    eb.IS <- vector("list", ncol(ISdata))
+    for(i in 1:ncol(ISdata)){
+      eb.IS[[i]] <- eval.basis(times.avail[[i]], Fourier.9.basis)
+    }
+    eb.RS <- eval.basis(months.balaton.dec, Fourier.9.basis)
+    eb.pred <- eb.RS # i.e. predictions to be made at all 115 months in the dataset.
+    
+    # Let's predict at 997 locations as chosen by a constrained Delaunay triangulation
+    # (see Wilkie et al. 2018):
+    pred.months.balaton.dec <- run.NSDmodel(nIter=1000, nBurnIn=10, nChains=2, nThin=2,yData=ISdata, xData=RSdata[, which.closest],
+                                            xPred=RSdata[, which.closest.RS], coordsData=coords.IS, coordsPred=coords.RS[which.closest.RS, ], 
+                                            times.yData = months.balaton, times.xData = months.balaton, times.xPred = months.balaton, times.yPred = months.balaton,
+                                            basis.type = "fourier",basis.dim = 9,period = 1)
+    
+    summary.months.balaton.dec <- summary.NSD(pred.months.balaton.dec)
+    
+    # Get the predictions and 95\% credible interval bounds from the summary and
+    # put them into 3 separate matrices:
+    pred.mat.all.months.balaton.dec <- summary.months.balaton.dec$pred.mat
+    lwrbnd.mat.all.months.balaton.dec <- summary.months.balaton.dec$lwrbnd.mat
+    uprbnd.mat.all.months.balaton.dec <- summary.months.balaton.dec$uprbnd.mat
+    
+    # Create a SpatialPointsDataFrame for the predictions, lower and upper 
+    # 95\% credible interval bounds (using package "sp"):
+    pred.mat.all.months.balaton.dec.sp <- cbind.data.frame(coords.RS[which.closest.RS, ], 
+                                                       t(pred.mat.all.months.balaton.dec))
+    colnames(pred.mat.all.months.balaton.dec.sp) <- c("lon", "lat", paste0("x.", 
+                                                                       1:length(months.balaton)))
+    sp::coordinates(pred.mat.all.months.balaton.dec.sp) <- c("lon","lat")
+    
+    lwrbnd.mat.all.months.balaton.dec.sp <- cbind.data.frame(coords.RS[which.closest.RS, ], 
+                                                         t(lwrbnd.mat.all.months.balaton.dec))
+    colnames(lwrbnd.mat.all.months.balaton.dec.sp) <- c("lon", "lat",paste0("x.", 
+                                                                        1:length(months.balaton)))
+    sp::coordinates(lwrbnd.mat.all.months.balaton.dec.sp) <- c("lon", "lat")
+    
+    uprbnd.mat.all.months.balaton.dec.sp <- cbind.data.frame(coords.RS[which.closest.RS, ], 
+                                                         t(uprbnd.mat.all.months.balaton.dec))
+    colnames(uprbnd.mat.all.months.balaton.dec.sp) <- c("lon", "lat", paste0("x.", 
+                                                                         1:length(months.balaton)))
+    sp::coordinates(uprbnd.mat.all.months.balaton.dec.sp) <- c("lon", "lat")
+    
+    # Plot the predictions for a few months (arranged in same figure):
+    sp1 <- sp::spplot(pred.mat.all.months.balaton.dec.sp, "x.1", 
+                      col.regions = rev(heat.colors(100)), colorkey = TRUE, main = "15th June 2002",
+                      scales = list(draw = TRUE), xlab = "Longitude (degrees East)", 
+                      ylab = "Latitude (degrees North)")
+    sp2 <- sp::spplot(pred.mat.all.months.balaton.dec.sp, "x.2", 
+                      col.regions = rev(heat.colors(100)), colorkey = TRUE, main = "15th July 2002",
+                      scales = list(draw = TRUE), xlab = "Longitude (degrees East)", 
+                      ylab = "Latitude (degrees North)")
+    sp3 <- sp::spplot(pred.mat.all.months.balaton.dec.sp, "x.3", 
+                      col.regions = rev(heat.colors(100)), colorkey = TRUE, main = "14th August 2002",
+                      scales = list(draw = TRUE), xlab = "Longitude (degrees East)",
+                      ylab = "Latitude (degrees North)")
+    
+    plot(sp1, position = c(0, 0.66, 1, 0.99), more = TRUE)
+    plot(sp2, position = c(0, 0.33, 1, 0.66), more = TRUE)
+    plot(sp3, position = c(0, 0, 1, 0.33), more = FALSE)
+    
+    # Plot the predictions for 15th June 2002, along with lower and upper 
+    # 95\% credible interval bounds (on same scale):
+    cuts <- seq(min(lwrbnd.mat.all.months.balaton.dec.sp@data$"x.1"), 
+                max(uprbnd.mat.all.months.balaton.dec.sp@data$"x.1"), length.out = 100)
+    sp1a <- sp::spplot(pred.mat.all.months.balaton.dec.sp, "x.1", 
+                       col.regions = rev(heat.colors(100)), colorkey = TRUE, main = "Predictions",
+                       scales = list(draw = TRUE), xlab = "Longitude (degrees East)", 
+                       ylab = "Latitude (degrees North)", cuts = cuts)
+    sp4 <- sp::spplot(lwrbnd.mat.all.months.balaton.dec.sp, "x.1", 
+                      col.regions = rev(heat.colors(100)), colorkey = TRUE, main = "Lower 95 CI bound",
+                      scales = list(draw = TRUE), xlab = "Longitude (degrees East)", 
+                      ylab = "Latitude (degrees North)", cuts = cuts)
+    sp5 <- sp::spplot(uprbnd.mat.all.months.balaton.dec.sp, "x.1", 
+                      col.regions = rev(heat.colors(100)), colorkey = TRUE, main = "Upper 95 CI bound",
+                      scales = list(draw = TRUE), xlab = "Longitude (degrees East)", 
+                      ylab = "Latitude (degrees North)", cuts = cuts)  
+    plot(sp4, position = c(0, 0.66, 1, 0.99), more = TRUE)
+    plot(sp1a, position = c(0, 0.33, 1, 0.66), more = TRUE)
+    plot(sp5, position = c(0, 0, 1, 0.33), more = FALSE)
+  }}
+
+}
