@@ -7,9 +7,7 @@ NSD is an R package for fusing datasets of different spatiotemporal support usin
 
 NSD allows fusing these datasets to retain the spatiotemporal information from the covariate dataset, with the accuracy of the response dataset.
 
-```{r, echo=FALSE, out.width = "600px"}
-knitr::include_graphics("image1.jpg")
-```
+![](figures_md/fig1.jpg)
 
 *Figure 1:* Example application of NSD to fuse in situ (response) and satellite (covariate) water quality datasets.
 
@@ -92,6 +90,7 @@ legend("topleft", legend = c("Satellite grid cell centres", "In situ point locat
                              "Closest grid cells to point locations"), pch = c(15, 16, 4), 
        pt.cex = c(0.25, 1, 1), col = c("grey", "dodgerblue", "red"), bty = "n")
 ```
+![](figures_md/fig2.png)
 
 Let us plot the data over time for a single in situ point location and the satellite data for its corresponding grid cell:
 
@@ -106,6 +105,7 @@ lines(RSdata[, which.closest[6]] ~ months.balaton, pch = 15, col= "deepskyblue",
 legend("topright", legend = c("In situ data", "Satellite data"), pch = c(16, NA), 
        lty = c(1, 2), col = c("grey", "deepskyblue"), horiz = TRUE, bty = "n")
 ```
+![](figures_md/fig3.png)
 
 There are clear patterns of 2 peaks per year in both datasets, but there is much higher variability in the satellite data, showing the need for calibration with the in situ data.
 
@@ -124,6 +124,7 @@ sp::spplot(data.spatial.month102, colorkey = TRUE, pch = 16,
                             col = "white", cex = 1.25), scales = list(draw = TRUE), 
            xlab = "Longitude (degrees East)", ylab = "Latitude (degrees North)")
 ```
+![](figures_md/fig4.png)
 
 The in situ data locations are shown surrounded by white circles. The spatial patterns of the satellite data are clear and would not be understood from the in situ data alone, but the in situ data are clearly slightly higher than their nearby satellite data cells on average, showing the need for calibration.
 
@@ -147,6 +148,7 @@ We should check for convergence. In reality, this should be done for many parame
 par(mar=c(4,4.5,1,0.5))
 plot(model1[, 1593:1596])
 ```
+![](figures_md/fig5.png)
 
 The chains appear to have converged to stationary distributions. We can therefore proceed and calculate summary statistics. The `summary_NSD` function calculates the usual `coda::summary.mcmc` summary, along with matrices of predictions and lower and upper 95% credible interval bounds, with the structure shown below:
 
@@ -172,6 +174,7 @@ legend("topright", legend = c("In situ data", "Predictions", "95% credible inter
        pch = c(16, NA, NA), lty = c(1, 1, 2), col = c("grey", "black", "black"), 
        horiz = FALSE, bty = "o")
 ```
+![](figures_md/fig6.png)
 
 This plot shows that the method is working, but some of the credible intervals are quite wide. Maybe a Fourier basis is more appropriate for these data. Let's refit the model with a Fourier basis of dimension 9, with period 1 year, and reproduce the plots:
 
@@ -184,6 +187,10 @@ model2 <- run.NSDmodel(nIter = 10000, yData = ISdata[, -6], xData = RSdata[, whi
                        period = 1)
 par(mar=c(4,4.5,1,0.5))
 plot(model2[, 441:444])
+```
+![](figures_md/fig7.png)
+
+```
 summary.model2 <- summary_NSD(model2)
 par(mar=c(4,4.5,1.25,0.5))
 plot(ISdata[, 6] ~ months.balaton, type = "o", pch = 16, col = "grey", xlab = "Year", 
@@ -199,6 +206,7 @@ legend("topright", legend = c("In situ data", "Predictions", "95% credible inter
        pch = c(16, NA, NA), lty = c(1, 1, 2), col = c("grey", "black", "black"), 
        horiz = FALSE, bty = "o")
 ```
+![](figures_md/fig8.png)
 
 The Fourier basis is able to share information over the years to obtain a better fit. This will only be the case where there is a fairly consistent seasonal pattern over the years. Otherwise, a B-spline basis is preferable.
 
@@ -213,6 +221,7 @@ points(coords.RS[which.closest.RS, ], pch = 16, col = "dodgerblue")
 legend("topleft", legend = c("Satellite data locations", "Prediction locations"), 
        pch = c(15, 16), pt.cex = c(0.25, 1), col = c("grey", "dodgerblue"), bty = "n")
 ```
+![](figures_md/fig9.png)
 
 We now re-run the model, again using the Fourier dimension 9 basis with period 1 year, but using data for all in situ locations and predicting at the 997 prediction locations. We also set the number of MCMC iterations to just 100, since this takes a while to run, but note that this is only for illustration purposes and as long a run as necessary must be completed to ensure convergence.
 
@@ -249,6 +258,7 @@ sp.pred <- sp::spplot(pred.spatial.month102, colorkey = TRUE, pch = 16,
 plot(sp.data, position = c(0, 0.5, 1, 1), more = TRUE)
 plot(sp.pred, position = c(0, 0, 1, 0.5), more = FALSE)
 ```
+![](figures_md/fig10.png)
 
 The satellite data and predictions are plotted above, with the in situ data overlaid, surrounded by white circles.
 
@@ -294,6 +304,7 @@ plot(sp.pred2, position = c(0, 0.66, 1, 0.99), more = TRUE)
 plot(sp.lwrbnd, position = c(0, 0.33, 1, 0.66), more = TRUE)
 plot(sp.uprbnd, position = c(0, 0, 1, 0.33), more = FALSE)
 ```
+![](figures_md/fig11.png)
 
 # References
 
