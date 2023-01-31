@@ -1,15 +1,21 @@
 Package: NSD
 Type: Package
 Title: Nonparametric Statistical Downscaling in R
-Version: 0.0.0.9001
-Date: 2021-04-30
-Author: Craig Wilkie
-Maintainer: Craig Wilkie <craig.wilkie@glasgow.ac.uk>
+Version: 0.0.0.9002
+Date: 2023-01-31
+Authors@R: c(
+    person("Craig", "Wilkie", email = "craig.wilkie@glasgow.ac.uk", role = c("aut","cre")),
+    person("Zhaoyuan", "Zou", email = "z.zou.2@research.gla.ac.uk", role = "ctb"))
 Description: This package allows the user to fit the nonparametric statistical downscaling model of Wilkie et al. (2019) to their own data.
 License: CC0
-Imports: Rcpp (>= 1.0.6),
-    coda (>= 0.19-4),
-    sp (>= 1.4-5),
-    lubridate (>= 1.7.10),
-    fda (>= 5.1.9)
+Imports: Rcpp (>= 1.0.6), coda (>= 0.19-4), sp (>= 1.4-5), lubridate
+        (>= 1.7.10), fda (>= 5.1.9), viridis (>= 0.6.1), viridisLite
+        (>= 0.4.0)
 LinkingTo: Rcpp, RcppArmadillo
+Suggests: rmarkdown, knitr
+VignetteBuilder: knitr
+NeedsCompilation: yes
+Packaged: 2023-01-31 17:25:55 UTC; craig
+Author: Craig Wilkie [aut, cre],
+  Zhaoyuan Zou [ctb]
+Maintainer: Craig Wilkie <craig.wilkie@glasgow.ac.uk>

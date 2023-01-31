@@ -300,12 +300,12 @@ NumericMatrix NSDmodel(int nIter, int nThin, List yData, List xData, List xPred,
         arma::vec alphaJ = alphaUpdate.row(k).t();
         arma::vec muAlphaPredJ = SigmaAlphaPredB*alphaJ;
         // arma::mat SigmaAlphaPredJ = sigmaAlphaPrecUpdate*SigmaAlphaPredA;
-        alphaPredUpdate.row(k) = muAlphaPredJ.t() + arma::randn(1,nPred)*sqrt(sigmaAlphaPrecUpdate)*CholSigmaAlphaPredA;
+        alphaPredUpdate.row(k) = muAlphaPredJ.t() + arma::randn(1,nPred)*sqrt(1/sigmaAlphaPrecUpdate)*CholSigmaAlphaPredA;
         
         arma::vec betaJ = betaUpdate.row(k).t();
         arma::vec muBetaPredJ = arma::ones(nPred) + SigmaBetaPredB*(betaJ-arma::ones(nData));
         // arma::mat SigmaBetaPredJ = sigmaBetaPrecUpdate*SigmaBetaPredA;
-        betaPredUpdate.row(k) = muBetaPredJ.t() + arma::randn(1,nPred)*sqrt(sigmaBetaPrecUpdate)*CholSigmaBetaPredA;
+        betaPredUpdate.row(k) = muBetaPredJ.t() + arma::randn(1,nPred)*sqrt(1/sigmaBetaPrecUpdate)*CholSigmaBetaPredA;
       }
       for(int k=0; k<nPred; k++){
         NumericVector xPredJ = xPred[k];
@@ -319,7 +319,7 @@ NumericMatrix NSDmodel(int nIter, int nThin, List yData, List xData, List xPred,
       }
       for(int k=0; k<m; k++){
         for(int l=0; l<nPred; l++){
-          cPredUpdate(k,l) = R::rnorm(alphaPredUpdate(k,l)+betaPredUpdate(k,l)*dPredUpdate(k,l),(1/sigmaCPrecUpdate));
+          cPredUpdate(k,l) = R::rnorm(alphaPredUpdate(k,l)+betaPredUpdate(k,l)*dPredUpdate(k,l),sqrt(1/sigmaCPrecUpdate));
         }
       }
       arma::vec alphaPredUpdateVec = arma::vectorise(alphaPredUpdate);
@@ -715,16 +715,16 @@ NumericMatrix NSDmodelMulti(int nIter, int nThin, List yData, List xData, List z
         arma::vec alphaJ = alphaUpdate.row(k).t();
         arma::vec muAlphaPredJ = SigmaAlphaPredB*alphaJ;
         // arma::mat SigmaAlphaPredJ = sigmaAlphaPrecUpdate*SigmaAlphaPredA;
-        alphaPredUpdate.row(k) = muAlphaPredJ.t() + arma::randn(1,nPred)*sqrt(sigmaAlphaPrecUpdate)*CholSigmaAlphaPredA;
+        alphaPredUpdate.row(k) = muAlphaPredJ.t() + arma::randn(1,nPred)*sqrt(1/sigmaAlphaPrecUpdate)*CholSigmaAlphaPredA;
         
         arma::vec betaJ = betaUpdate.row(k).t();
         arma::vec muBetaPredJ = arma::ones(nPred) + SigmaBetaPredB*(betaJ-arma::ones(nData));
         // arma::mat SigmaBetaPredJ = sigmaBetaPrecUpdate*SigmaBetaPredA;
-        betaPredUpdate.row(k) = muBetaPredJ.t() + arma::randn(1,nPred)*sqrt(sigmaBetaPrecUpdate)*CholSigmaBetaPredA;
+        betaPredUpdate.row(k) = muBetaPredJ.t() + arma::randn(1,nPred)*sqrt(1/sigmaBetaPrecUpdate)*CholSigmaBetaPredA;
         
         arma::vec gammaJ = gammaUpdate.row(k).t();
         arma::vec muGammaPredJ = arma::ones(nPred) + SigmaBetaPredB*(gammaJ-arma::ones(nData));
-        gammaPredUpdate.row(k) = muGammaPredJ.t() + arma::randn(1,nPred)*sqrt(sigmaGammaPrecUpdate)*CholSigmaGammaPredA;
+        gammaPredUpdate.row(k) = muGammaPredJ.t() + arma::randn(1,nPred)*sqrt(1/sigmaGammaPrecUpdate)*CholSigmaGammaPredA;
       }
       for(int k=0; k<nPred; k++){
         NumericVector xPredJ = xPred[k];
@@ -749,7 +749,7 @@ NumericMatrix NSDmodelMulti(int nIter, int nThin, List yData, List xData, List z
       }
       for(int k=0; k<m; k++){
         for(int l=0; l<nPred; l++){
-          cPredUpdate(k,l) = R::rnorm(alphaPredUpdate(k,l)+betaPredUpdate(k,l)*dPredUpdate(k,l)+gammaPredUpdate(k,l)*ePredUpdate(k,l),(1/sigmaCPrecUpdate));
+          cPredUpdate(k,l) = R::rnorm(alphaPredUpdate(k,l)+betaPredUpdate(k,l)*dPredUpdate(k,l)+gammaPredUpdate(k,l)*ePredUpdate(k,l),sqrt(1/sigmaCPrecUpdate));
         }
       }
       arma::vec alphaPredUpdateVec = arma::vectorise(alphaPredUpdate);

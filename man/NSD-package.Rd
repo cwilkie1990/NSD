@@ -9,10 +9,6 @@
 }
 \details{
 
-The DESCRIPTION file:
-\packageDESCRIPTION{NSD}
-\packageIndices{NSD}
-
 The main function in this package is \code{\link{run.NSDmodel}}, which allows the user to run the nonparametric statistical downscaling model described in Wilkie et al. (2019). Two examples are given, showing how the function can be used to predict over both space and time, fusing data of different spatiotemporal support.
 
 The function \code{\link{run.NSDmodelMulti}} allows fitting a nonparametric statistical downscaling model with two covariates. One example is given.
@@ -26,9 +22,8 @@ Helper functions described in \code{\link{NSD_other}} allow the user to manipula
 %The functions described in \code{\link{NSD_helper_functions}} are used internally by \code{\link{run.NSDmodel}} and should not be called directly by the user.
 }
 \author{
-\packageAuthor{NSD}
-
-Maintainer: \packageMaintainer{NSD}
+Craig Wilkie [aut, cre]
+Zhaoyuan Zou [ctb]
 }
 \references{
 Wilkie, C.J., C.A. Miller, E.M. Scott, R.A. O'Donnell, P.D. Hunter, E. Spyrakos and A.N. Tyler (2019). \emph{Nonparametric statistical downscaling for the fusion of data of different spatiotemporal support.} Environmetrics 30(3):e2549.
