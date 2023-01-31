@@ -11,6 +11,47 @@ run.NSDmodel<-function(nIter=100,nBurnIn=10,nChains=2,nThin=10,yData,xData,xPred
                         phiAlpha=0.1,phiBeta=0.1,
                         aAlpha=2,bAlpha=1,aBeta=2,bBeta=1,aY=2,bY=1,aC=2,bC=1,aX=2,bX=1,muD=NULL,SigmaD=NULL,
                         sigmaAlphaPrecInit=1,sigmaBetaPrecInit=1,sigmaYPrecInit=1,sigmaCPrecInit=1,alphaInit=NULL,betaInit=NULL,cInit=NULL,sigmaXPrecInit=1,dInit=NULL){
+  coordsPred<-matrix(coordsPred,ncol = 2)
+  if(!is.list(xPred)&!is.matrix(xPred)&!is.data.frame(xPred)){xPred<-matrix(xPred,ncol=1)}
+  if(is.list(yData)){
+    if(length(yData)!=nrow(coordsData)){
+      stop("'length(yData)' and 'nrow(coordsData)' do not match")
+    }
+  }else{
+    if(is.matrix(yData)|is.data.frame(yData)){
+      if(ncol(yData)!=nrow(coordsData)){
+        stop("'ncol(yData)' and 'nrow(coordsData)' do not match")
+      }
+    }else{
+      stop("'yData' must be a list, matrix or data frame")
+    }
+  }
+  if(is.list(xData)){
+    if(length(xData)!=nrow(coordsData)){
+      stop("'length(xData)' and 'nrow(coordsData)' do not match")
+    }
+  }else{
+    if(is.matrix(xData)|is.data.frame(xData)){
+      if(ncol(xData)!=nrow(coordsData)){
+        stop("'ncol(xData)' and 'nrow(coordsData)' do not match")
+      }
+    }else{
+      stop("'xData' must be a list, matrix or data frame")
+    }
+  }
+  if(is.list(xPred)){
+    if(length(xPred)!=nrow(coordsPred)){
+      stop("'length(xPred)' and 'nrow(coordsPred)' do not match")
+    }
+  }else{
+    if(is.matrix(xPred)|is.data.frame(xPred)){
+      if(ncol(xPred)!=nrow(coordsPred)){
+        stop("'ncol(xPred)' and 'nrow(coordsPred)' do not match")
+      }
+    }else{
+      stop("'xPred' must be a list, matrix or data frame")
+    }
+  }
   if(!is.list(times.yData)&inherits(times.yData,c("POSIXt", "POSIXct", "POSIXlt", "Date"))){warning("'times.yData' has been provided in a Date format, but will be converted to a numeric vector");times.yData<-lubridate::decimal_date(times.yData)}
   if(!is.list(times.xData)&inherits(times.xData,c("POSIXt", "POSIXct", "POSIXlt", "Date"))){warning("'times.xData' has been provided in a Date format, but will be converted to a numeric vector");times.xData<-lubridate::decimal_date(times.xData)}
   if(!is.list(times.xPred)&inherits(times.xPred,c("POSIXt", "POSIXct", "POSIXlt", "Date"))){warning("'times.xPred' has been provided in a Date format, but will be converted to a numeric vector");times.xPred<-lubridate::decimal_date(times.xPred)}
@@ -19,7 +60,6 @@ run.NSDmodel<-function(nIter=100,nBurnIn=10,nChains=2,nThin=10,yData,xData,xPred
   if(is.list(times.xData)&inherits(times.xData[[1]],c("POSIXt", "POSIXct", "POSIXlt", "Date"))){warning("'times.xData' has been provided in a list in Date format, but will be converted to a list of numeric vectors");for(i in 1:length(times.xData)){times.xData[[i]]<-lubridate::decimal_date(times.xData[[i]])}}
   if(is.list(times.xPred)&inherits(times.xPred[[1]],c("POSIXt", "POSIXct", "POSIXlt", "Date"))){warning("'times.xPred' has been provided in a list in Date format, but will be converted to a list of numeric vectors");for(i in 1:length(times.xPred)){times.xPred[[i]]<-lubridate::decimal_date(times.xPred[[i]])}}
   if(is.list(times.yPred)&inherits(times.yPred[[1]],c("POSIXt", "POSIXct", "POSIXlt", "Date"))){warning("'times.yPred' has been provided in a list in Date format, but will be converted to a list of numeric vectors");for(i in 1:length(times.yPred)){times.yPred[[i]]<-lubridate::decimal_date(times.yPred[[i]])}}
-  if(!is.list(xPred)&!is.matrix(xPred)&!is.data.frame(xPred)){xPred<-matrix(xPred,ncol=1)}
   if(is.null(times.yData)){
     warning("'times.yData' has not been provided. Defaulting to equally-spaced time points.")
     if(is.matrix(yData)|is.data.frame(yData)){
@@ -169,8 +209,6 @@ run.NSDmodel<-function(nIter=100,nBurnIn=10,nChains=2,nThin=10,yData,xData,xPred
     SigmaD<-100*diag(basis.dim)
   }
   
-  coordsPred<-matrix(coordsPred,ncol = 2)
-  
   if(is.list(ByPred)){
     ByPred<-matrix(unlist(ByPred),nrow=nrow(ByPred[[1]]),ncol=ncol(ByPred[[1]]))
   }
@@ -208,6 +246,74 @@ run.NSDmodelMulti<-function(nIter=100,nBurnIn=10,nChains=2,nThin=10,yData,xData,
                              phiAlpha=0.1,phiBeta=0.1,phiGamma=0.1,
                              aAlpha=2,bAlpha=1,aBeta=2,bBeta=1,aGamma=2,bGamma=1,aY=2,bY=1,aC=2,bC=1,aX=2,bX=1,aZ=2,bZ=1,muD=NULL,SigmaD=NULL,muE=NULL,SigmaE=NULL,
                              sigmaAlphaPrecInit=1,sigmaBetaPrecInit=1,sigmaGammaPrecInit=1,sigmaYPrecInit=1,sigmaCPrecInit=1,alphaInit=NULL,betaInit=NULL,gammaInit=NULL,cInit=NULL,sigmaXPrecInit=1,sigmaZPrecInit=1,dInit=NULL,eInit=NULL){
+  coordsPred<-matrix(coordsPred,ncol = 2)
+  if(!is.list(xPred)&!is.matrix(xPred)&!is.data.frame(xPred)){xPred<-matrix(xPred,ncol=1)}
+  if(!is.list(zPred)&!is.matrix(zPred)&!is.data.frame(zPred)){zPred<-matrix(zPred,ncol=1)}
+  if(is.list(yData)){
+    if(length(yData)!=nrow(coordsData)){
+      stop("'length(yData)' and 'nrow(coordsData)' do not match")
+    }
+  }else{
+    if(is.matrix(yData)|is.data.frame(yData)){
+      if(ncol(yData)!=nrow(coordsData)){
+        stop("'ncol(yData)' and 'nrow(coordsData)' do not match")
+      }
+    }else{
+      stop("'yData' must be a list, matrix or data frame")
+    }
+  }
+  if(is.list(xData)){
+    if(length(xData)!=nrow(coordsData)){
+      stop("'length(xData)' and 'nrow(coordsData)' do not match")
+    }
+  }else{
+    if(is.matrix(xData)|is.data.frame(xData)){
+      if(ncol(xData)!=nrow(coordsData)){
+        stop("'ncol(xData)' and 'nrow(coordsData)' do not match")
+      }
+    }else{
+      stop("'xData' must be a list, matrix or data frame")
+    }
+  }
+  if(is.list(zData)){
+    if(length(zData)!=nrow(coordsData)){
+      stop("'length(zData)' and 'nrow(coordsData)' do not match")
+    }
+  }else{
+    if(is.matrix(zData)|is.data.frame(zData)){
+      if(ncol(zData)!=nrow(coordsData)){
+        stop("'ncol(zData)' and 'nrow(coordsData)' do not match")
+      }
+    }else{
+      stop("'zData' must be a list, matrix or data frame")
+    }
+  }
+  if(is.list(xPred)){
+    if(length(xPred)!=nrow(coordsPred)){
+      stop("'length(xPred)' and 'nrow(coordsPred)' do not match")
+    }
+  }else{
+    if(is.matrix(xPred)|is.data.frame(xPred)){
+      if(ncol(xPred)!=nrow(coordsPred)){
+        stop("'ncol(xPred)' and 'nrow(coordsPred)' do not match")
+      }
+    }else{
+      stop("'xPred' must be a list, matrix or data frame")
+    }
+  }
+  if(is.list(zPred)){
+    if(length(zPred)!=nrow(coordsPred)){
+      stop("'length(zPred)' and 'nrow(coordsPred)' do not match")
+    }
+  }else{
+    if(is.matrix(zPred)|is.data.frame(zPred)){
+      if(ncol(zPred)!=nrow(coordsPred)){
+        stop("'ncol(zPred)' and 'nrow(coordsPred)' do not match")
+      }
+    }else{
+      stop("'zPred' must be a list, matrix or data frame")
+    }
+  }
   if(!is.list(times.yData)&inherits(times.yData,c("POSIXt", "POSIXct", "POSIXlt", "Date"))){warning("'times.yData' has been provided in a Date format, but will be converted to a numeric vector");times.yData<-lubridate::decimal_date(times.yData)}
   if(!is.list(times.xData)&inherits(times.xData,c("POSIXt", "POSIXct", "POSIXlt", "Date"))){warning("'times.xData' has been provided in a Date format, but will be converted to a numeric vector");times.xData<-lubridate::decimal_date(times.xData)}
   if(!is.list(times.zData)&inherits(times.zData,c("POSIXt", "POSIXct", "POSIXlt", "Date"))){warning("'times.zData' has been provided in a Date format, but will be converted to a numeric vector");times.zData<-lubridate::decimal_date(times.zData)}
@@ -220,8 +326,6 @@ run.NSDmodelMulti<-function(nIter=100,nBurnIn=10,nChains=2,nThin=10,yData,xData,
   if(is.list(times.xPred)&inherits(times.xPred[[1]],c("POSIXt", "POSIXct", "POSIXlt", "Date"))){warning("'times.xPred' has been provided in a list in Date format, but will be converted to a list of numeric vectors");for(i in 1:length(times.xPred)){times.xPred[[i]]<-lubridate::decimal_date(times.xPred[[i]])}}
   if(is.list(times.zPred)&inherits(times.zPred[[1]],c("POSIXt", "POSIXct", "POSIXlt", "Date"))){warning("'times.zPred' has been provided in a list in Date format, but will be converted to a list of numeric vectors");for(i in 1:length(times.zPred)){times.zPred[[i]]<-lubridate::decimal_date(times.zPred[[i]])}}
   if(is.list(times.yPred)&inherits(times.yPred[[1]],c("POSIXt", "POSIXct", "POSIXlt", "Date"))){warning("'times.yPred' has been provided in a list in Date format, but will be converted to a list of numeric vectors");for(i in 1:length(times.yPred)){times.yPred[[i]]<-lubridate::decimal_date(times.yPred[[i]])}}
-  if(!is.list(xPred)&!is.matrix(xPred)&!is.data.frame(xPred)){xPred<-matrix(xPred,ncol=1)}
-  if(!is.list(zPred)&!is.matrix(zPred)&!is.data.frame(zPred)){zPred<-matrix(zPred,ncol=1)}
   if(is.null(times.yData)){
     warning("'times.yData' has not been provided. Defaulting to equally-spaced time points.")
     if(is.matrix(yData)|is.data.frame(yData)){
@@ -449,7 +553,6 @@ run.NSDmodelMulti<-function(nIter=100,nBurnIn=10,nChains=2,nThin=10,yData,xData,
     SigmaE<-100*diag(basis.dim)
   }
   
-  coordsPred<-matrix(coordsPred,ncol = 2)
   if(is.list(ByPred)){
     ByPred<-matrix(unlist(ByPred),nrow=nrow(ByPred[[1]]),ncol=ncol(ByPred[[1]]))
   }
